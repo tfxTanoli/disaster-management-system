@@ -1,0 +1,1 @@
+src/pages/public/Privacy.tsx(1,1): error TS6133: 'ScrollArea' is declared but its value is never read.

@@ -1,0 +1,8 @@
+src/pages/public/Guidelines.tsx(6,8): error TS2307: Cannot find module '@/components/ui/accordion' or its corresponding type declarations.
+src/pages/public/Guidelines.tsx(8,10): error TS6133: 'BookOpen' is declared but its value is never read.
+src/pages/public/Guidelines.tsx(8,20): error TS6133: 'AlertTriangle' is declared but its value is never read.
+src/pages/public/Guidelines.tsx(73,34): error TS2304: Cannot find name 'Activity'.
+src/pages/public/ReportIncident.tsx(3,23): error TS2307: Cannot find module '@/components/ui/input' or its corresponding type declarations.
+src/pages/public/ReportIncident.tsx(4,23): error TS2307: Cannot find module '@/components/ui/label' or its corresponding type declarations.
+src/pages/public/ReportIncident.tsx(5,26): error TS2307: Cannot find module '@/components/ui/textarea' or its corresponding type declarations.
+src/pages/public/ReportIncident.tsx(6,79): error TS2307: Cannot find module '@/components/ui/select' or its corresponding type declarations.
