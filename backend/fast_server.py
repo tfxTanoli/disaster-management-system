@@ -369,6 +369,9 @@ def delete_user(uid: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete user: {str(e)}")
 
+# Vercel serverless function handler
+handler = app
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
