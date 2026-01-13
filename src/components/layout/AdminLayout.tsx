@@ -8,7 +8,8 @@ import {
     LogOut,
     ShieldAlert,
     Menu,
-    Map
+    Map,
+    Users
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -64,6 +65,11 @@ export function AdminLayout() {
                     <Link to="/admin/reports" className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${isActive('/admin/reports')}`}>
                         <FileText className="h-5 w-5" />
                         {isSidebarOpen && <span>Reports</span>}
+                    </Link>
+
+                    <Link to="/admin/users" className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${isActive('/admin/users')}`}>
+                        <Users className="h-5 w-5" />
+                        {isSidebarOpen && <span>Users</span>}
                     </Link>
                 </div>
 

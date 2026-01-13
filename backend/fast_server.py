@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 from dotenv import load_dotenv
 import firebase_admin
-from firebase_admin import credentials, db
+from firebase_admin import credentials, db, auth
 
 # --- Load Environment Variables ---
 load_dotenv()
@@ -88,6 +88,17 @@ class PredictionRequest(BaseModel):
 class RouteRequest(BaseModel):
     start: Location
     end: Optional[Location] = None
+
+class UserCreate(BaseModel):
+    email: str
+    password: str
+    display_name: str
+    role: Optional[str] = "user"
+
+class UserUpdate(BaseModel):
+    display_name: Optional[str] = None
+    role: Optional[str] = None
+    disabled: Optional[bool] = None
 
 # --- Helper Logic ---
 SAFETY_RECOMMENDATIONS = {
@@ -254,11 +265,34 @@ def get_danger_zones():
     """
     Return static list of known danger zones from dataset history.
     """
-    # In real app, query database. Here return some high-risk samples.
+    # Expanded static list of high-risk zones in Gilgit-Baltistan
     return [
-        {"lat": 36.3165, "lng": 76.4139, "type": "Landslide", "risk": "High"},
-        {"lat": 35.9208, "lng": 74.3089, "type": "Flood", "risk": "Medium"},
-        {"lat": 36.5, "lng": 75.2, "type": "GLOF", "risk": "Critical"},
+        {"lat": 36.3165, "lng": 76.4139, "type": "Landslide", "risk": "High", "location": "Hunza (Attabad)"},
+        {"lat": 35.9208, "lng": 74.3089, "type": "Flood", "risk": "Medium", "location": "Gilgit River"},
+        {"lat": 36.5000, "lng": 75.2000, "type": "GLOF", "risk": "Critical", "location": "Passu Glacier"},
+        {"lat": 35.4244, "lng": 74.1030, "type": "Landslide", "risk": "High", "location": "Chilas (KKH)"},
+        {"lat": 35.2949, "lng": 75.6322, "type": "Avalanche", "risk": "High", "location": "Skardu (Deosai)"},
+        {"lat": 36.1750, "lng": 74.4000, "type": "Flood", "risk": "Severe", "location": "Naltar Valley"},
+        {"lat": 35.8000, "lng": 76.5000, "type": "GLOF", "risk": "Critical", "location": "Ghanche (Hushe)"},
+    ]
+
+@app.get("/safe-zones")
+def get_safe_zones():
+    """
+    Return static list of safe zones (Hospitals, Shelters, Open Grounds).
+    """
+    return [
+        {"lat": 35.9220, "lng": 74.3120, "name": "DHQ Hospital Gilgit", "type": "Hospital", "capacity": 200},
+        {"lat": 35.9300, "lng": 74.3200, "name": "City Park Shelter", "type": "Shelter", "capacity": 500},
+        {"lat": 35.9100, "lng": 74.2900, "name": "Army Helipad Ground", "type": "Open Ground", "capacity": 1000},
+        {"lat": 36.3200, "lng": 74.8600, "name": "Civil Hospital Hunza", "type": "Hospital", "capacity": 50},
+        {"lat": 36.3100, "lng": 74.8500, "name": "Karimabad Community Hall", "type": "Shelter", "capacity": 300},
+        {"lat": 35.3000, "lng": 75.6400, "name": "CMH Skardu", "type": "Hospital", "capacity": 150},
+        {"lat": 35.3100, "lng": 75.6500, "name": "Municipal Stadium Skardu", "type": "Open Ground", "capacity": 2000},
+        {"lat": 35.4200, "lng": 74.1100, "name": "Chilas Scout Hospital", "type": "Hospital", "capacity": 80},
+        # Added for Verification
+        {"lat": 34.9390, "lng": 76.2230, "name": "Kharmang DHQ Hospital", "type": "Hospital", "capacity": 60},
+        {"lat": 36.2167, "lng": 74.5167, "name": "Nagar Valley Shelter", "type": "Shelter", "capacity": 150},
     ]
 
 @app.post("/routes")
@@ -266,36 +300,48 @@ def get_evacuation_route(req: RouteRequest):
     """
     Calculate evacuation route to nearest safe zone.
     """
-    # Mock Route Logic: Straight line + jitter to look like a path
-    # In reality, use OSRM or GraphHopper
+    closest_zone = None
+    min_dist = float('inf')
     
-    steps = 10
-    path = []
-    
-    # Fake Safe Zone near Gilgit
-    safe_zone = {"lat": 35.95, "lng": 74.35}
+    # Get safe zones (reuse the data source)
+    safe_zones = get_safe_zones()
     
     start_lat = req.start.latitude
     start_lng = req.start.longitude
     
+    # Find nearest safe zone
+    for zone in safe_zones:
+        # Euclidean distance approximation for sorting (sufficient for local scale)
+        dist = np.sqrt((zone['lat'] - start_lat)**2 + (zone['lng'] - start_lng)**2)
+        if dist < min_dist:
+            min_dist = dist
+            closest_zone = zone
+            
+    if not closest_zone:
+        # Fallback if list empty
+        closest_zone = {"lat": 35.95, "lng": 74.35, "name": "Emergency Camp"}
+
+    steps = 10
+    path = []
+    
     for i in range(steps + 1):
         t = i / steps
-        # Linear interpolation
-        lat = start_lat + (safe_zone['lat'] - start_lat) * t
-        lng = start_lng + (safe_zone['lng'] - start_lng) * t
+        # Linear interpolation to the CLOSEST zone
+        lat = start_lat + (closest_zone['lat'] - start_lat) * t
+        lng = start_lng + (closest_zone['lng'] - start_lng) * t
         
         # Add slight noise to simulate road curvature
         if 0 < i < steps:
-            lat += (np.random.random() - 0.5) * 0.01
-            lng += (np.random.random() - 0.5) * 0.01
+            lat += (np.random.random() - 0.5) * 0.005 # Reduced noise for cleaner line
+            lng += (np.random.random() - 0.5) * 0.005
             
         path.append([lat, lng])
         
     return {
-        "safe_zone": safe_zone,
+        "safe_zone": closest_zone,
         "path": path,
-        "estimated_time": "15 mins",
-        "distance": "4.2 km"
+        "estimated_time": f"{int(min_dist * 1000)} mins", # Mock time based on dist
+        "distance": f"{min_dist * 100:.1f} km" # Mock km
     }
 
 @app.get("/geocode")
@@ -326,6 +372,84 @@ def geocode_location(q: str):
         # Return empty list on error to handle gracefully in frontend, or raise error
         # Raise generic error for now
         raise HTTPException(status_code=500, detail=str(e))
+
+# --- Admin User Management Endpoints ---
+
+@app.get("/admin/users")
+def list_users():
+    """List all users from Firebase Auth"""
+    try:
+        page = auth.list_users()
+        users = []
+        for user in page.users:
+            users.append({
+                "uid": user.uid,
+                "email": user.email,
+                "display_name": user.display_name,
+                "disabled": user.disabled,
+                "custom_claims": user.custom_claims
+            })
+        return users
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list users: {str(e)}")
+
+@app.post("/admin/users")
+def create_user(user: UserCreate):
+    """Create a new user"""
+    try:
+        u = auth.create_user(
+            email=user.email,
+            password=user.password,
+            display_name=user.display_name
+        )
+        # Set Role via Custom Claims
+        auth.set_custom_user_claims(u.uid, {"role": user.role})
+        
+        # Also sync to Realtime Database for profile access if needed
+        # (Optional, but good practice for consistent profile data)
+        ref = db.reference(f'users/{u.uid}')
+        ref.set({
+            'name': user.display_name,
+            'email': user.email,
+            'role': user.role,
+            'createdAt': getattr(u.user_metadata, 'creation_timestamp', None)
+        })
+        
+        return {"uid": u.uid, "message": "User created successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create user: {str(e)}")
+
+@app.put("/admin/users/{uid}")
+def update_user(uid: str, user: UserUpdate):
+    """Update user details"""
+    try:
+        updates = {}
+        if user.display_name: updates['display_name'] = user.display_name
+        if user.disabled is not None: updates['disabled'] = user.disabled
+        
+        auth.update_user(uid, **updates)
+        
+        if user.role:
+            auth.set_custom_user_claims(uid, {"role": user.role})
+            # Sync to DB
+            db.reference(f'users/{uid}').update({'role': user.role})
+            
+        if user.display_name:
+             db.reference(f'users/{uid}').update({'name': user.display_name})
+
+        return {"message": "User updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update user: {str(e)}")
+
+@app.delete("/admin/users/{uid}")
+def delete_user(uid: str):
+    """Delete a user"""
+    try:
+        auth.delete_user(uid)
+        db.reference(f'users/{uid}').delete()
+        return {"message": "User deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete user: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

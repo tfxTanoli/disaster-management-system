@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMapEvents, Polyline, CircleM
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { AlertTriangle, MapPin, Loader2, Info, Navigation, ShieldCheck, XCircle } from 'lucide-react';
+import { AlertTriangle, MapPin, Loader2, Info, Navigation, ShieldCheck, XCircle, Layers, Eye, EyeOff } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -36,6 +36,22 @@ interface RouteData {
     safe_zone: { lat: number; lng: number };
     estimated_time: string;
     distance: string;
+}
+
+interface DangerZone {
+    lat: number;
+    lng: number;
+    type: string;
+    risk: string;
+    location: string;
+}
+
+interface SafeZone {
+    lat: number;
+    lng: number;
+    name: string;
+    type: string;
+    capacity: number;
 }
 
 // Helper Component to Recenter Map
@@ -78,6 +94,38 @@ export function RiskMap() {
     // Dialog State
     const [showUnsupportedDialog, setShowUnsupportedDialog] = useState(false);
     const [unsupportedLocation, setUnsupportedLocation] = useState("");
+
+    // Global Map Layers State
+    const [dangerZones, setDangerZones] = useState<DangerZone[]>([]);
+    const [safeZones, setSafeZones] = useState<SafeZone[]>([]);
+    const [showDangerZones, setShowDangerZones] = useState(false);
+    const [showSafeZones, setShowSafeZones] = useState(false);
+
+    // Initial Data Fetch
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const [dangerRes, safeRes] = await Promise.all([
+                    fetch('http://localhost:8000/danger-zones'),
+                    fetch('http://localhost:8000/safe-zones')
+                ]);
+
+                if (dangerRes.ok) {
+                    const dangerData = await dangerRes.json();
+                    if (Array.isArray(dangerData)) setDangerZones(dangerData);
+                }
+
+                if (safeRes.ok) {
+                    const safeData = await safeRes.json();
+                    if (Array.isArray(safeData)) setSafeZones(safeData);
+                }
+
+            } catch (error) {
+                console.error("Failed to fetch map layers:", error);
+            }
+        };
+        fetchData();
+    }, []);
 
     const handleSearch = async () => {
         if (!searchQuery) return;
@@ -220,7 +268,7 @@ export function RiskMap() {
                 <Card className="lg:col-span-2 border-0 shadow-xl overflow-hidden h-full relative z-0">
                     <MapContainer
                         center={[35.9208, 74.3089]} // Gilgit
-                        zoom={9}
+                        zoom={8}
                         scrollWheelZoom={true}
                         className="h-full w-full"
                     >
@@ -232,6 +280,56 @@ export function RiskMap() {
 
                         {/* Sync map center with search result */}
                         {searchResult && <MapUpdater center={searchResult} />}
+
+                        {/* Danger Zones Layer */}
+                        {showDangerZones && dangerZones.map((zone, idx) => (
+                            <CircleMarker
+                                key={`danger-${idx}`}
+                                center={[zone.lat, zone.lng]}
+                                radius={20}
+                                pathOptions={{
+                                    color: '#ef4444',
+                                    fillColor: '#ef4444',
+                                    fillOpacity: 0.4,
+                                    weight: 2
+                                }}
+                            >
+                                <Popup className="font-sans">
+                                    <div className="space-y-1">
+                                        <div className="font-bold text-red-700 flex items-center gap-1">
+                                            <AlertTriangle className="h-3 w-3" /> {zone.type} Zone
+                                        </div>
+                                        <div className="text-xs text-slate-600 font-semibold">{zone.location}</div>
+                                        <div className="text-xs">Risk Level: <span className="font-bold text-red-600">{zone.risk}</span></div>
+                                    </div>
+                                </Popup>
+                            </CircleMarker>
+                        ))}
+
+                        {/* Safe Zones Layer */}
+                        {showSafeZones && safeZones.map((zone, idx) => (
+                            <CircleMarker
+                                key={`safe-${idx}`}
+                                center={[zone.lat, zone.lng]}
+                                radius={8}
+                                pathOptions={{
+                                    color: '#10b981',
+                                    fillColor: '#ffffff',
+                                    fillOpacity: 1,
+                                    weight: 4
+                                }}
+                            >
+                                <Popup className="font-sans">
+                                    <div className="space-y-1">
+                                        <div className="font-bold text-emerald-700 flex items-center gap-1">
+                                            <ShieldCheck className="h-3 w-3" /> Safe Zone
+                                        </div>
+                                        <div className="text-xs font-bold text-slate-800">{zone.name}</div>
+                                        <div className="text-xs text-slate-500">{zone.type} • Cap: {zone.capacity}</div>
+                                    </div>
+                                </Popup>
+                            </CircleMarker>
+                        ))}
 
                         {/* Route Visualization */}
                         {route && (
@@ -251,14 +349,45 @@ export function RiskMap() {
                         )}
                     </MapContainer>
 
-                    {!selectedPos && (
-                        <div className="absolute top-4 right-4 bg-white/90 backdrop-blur p-4 rounded-lg shadow-lg max-w-xs z-[400] text-sm hidden md:block">
-                            <div className="flex items-start gap-3">
-                                <Info className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
-                                <p>Navigate to your village or area and <strong>click on the map</strong> to run a real-time risk simulation.</p>
+                    {/* Map Layers Control */}
+                    <div className="absolute top-4 right-4 z-[400] flex flex-col gap-2">
+                        <div className="bg-white/95 backdrop-blur shadow-lg rounded-lg p-3 text-sm border border-slate-200">
+                            <h4 className="font-bold text-slate-700 mb-2 flex items-center gap-2">
+                                <Layers className="h-4 w-4" /> Map Layers
+                            </h4>
+                            <div className="space-y-2">
+                                <button
+                                    onClick={() => setShowDangerZones(!showDangerZones)}
+                                    className={`w-full flex items-center justify-between gap-3 px-3 py-1.5 rounded transition-colors ${showDangerZones ? 'bg-red-50 text-red-700 font-medium' : 'hover:bg-slate-50 text-slate-600'}`}
+                                >
+                                    <span className="flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                                        High Risk Zones
+                                    </span>
+                                    {showDangerZones ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3 opacity-50" />}
+                                </button>
+                                <button
+                                    onClick={() => setShowSafeZones(!showSafeZones)}
+                                    className={`w-full flex items-center justify-between gap-3 px-3 py-1.5 rounded transition-colors ${showSafeZones ? 'bg-emerald-50 text-emerald-700 font-medium' : 'hover:bg-slate-50 text-slate-600'}`}
+                                >
+                                    <span className="flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-emerald-500 border-2 border-white ring-1 ring-emerald-500"></span>
+                                        Safe Zones
+                                    </span>
+                                    {showSafeZones ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3 opacity-50" />}
+                                </button>
                             </div>
                         </div>
-                    )}
+
+                        {!selectedPos && (
+                            <div className="bg-white/95 backdrop-blur p-4 rounded-lg shadow-lg max-w-xs text-sm border border-slate-200">
+                                <div className="flex items-start gap-3">
+                                    <Info className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
+                                    <p>Toggle <strong>Map Layers</strong> to see regional risks, or click anywhere to analyze a specific point.</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </Card>
 
                 {/* Results Panel */}

@@ -12,6 +12,7 @@ import { RiskAssessment } from './pages/admin/RiskAssessment';
 import { Inventory } from './pages/admin/Inventory';
 import { AdminLiveMap } from './pages/admin/AdminLiveMap';
 import { AdminReports } from './pages/admin/AdminReports';
+import { UserManagement } from './pages/admin/UserManagement';
 
 // Public Pages
 import { LandingPage } from './pages/public/LandingPage';
@@ -80,6 +81,7 @@ function App() {
               <Route path="inventory" element={<Inventory />} />
               <Route path="reports" element={<AdminReports />} />
               <Route path="live-map" element={<AdminLiveMap />} />
+              <Route path="users" element={<UserManagement />} />
             </Route>
           </Route>
 
