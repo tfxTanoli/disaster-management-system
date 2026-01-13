@@ -50,7 +50,11 @@ except Exception as e:
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, replace with frontend URL
+    allow_origins=[
+        "https://disaster-management-system-teal.vercel.app",  # Production frontend
+        "http://localhost:5173",  # Local development
+        "http://localhost:5174",  # Alternative local port
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
