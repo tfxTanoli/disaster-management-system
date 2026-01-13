@@ -1,6 +1,7 @@
 import requests
 import sys
 import os
+import math
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -146,8 +147,9 @@ def predict_risk(req: PredictionRequest):
     # Mock Fallback logic if model missing or failed
     # Simulate heuristics based on coordinates and input variation
     # Add randomness based on lat/lng to make it feel "local" but consistent for same point
+    import random
     random_seed = int((req.latitude + req.longitude) * 100)
-    np.random.seed(random_seed)
+    random.seed(random_seed)
     
     # Base risk factor on environmental inputs if provided, else random
     risk_factor = 0
@@ -230,7 +232,7 @@ def get_evacuation_route(req: RouteRequest):
     # Find nearest safe zone
     for zone in safe_zones:
         # Euclidean distance approximation for sorting (sufficient for local scale)
-        dist = np.sqrt((zone['lat'] - start_lat)**2 + (zone['lng'] - start_lng)**2)
+        dist = math.sqrt((zone['lat'] - start_lat)**2 + (zone['lng'] - start_lng)**2)
         if dist < min_dist:
             min_dist = dist
             closest_zone = zone
@@ -250,8 +252,9 @@ def get_evacuation_route(req: RouteRequest):
         
         # Add slight noise to simulate road curvature
         if 0 < i < steps:
-            lat += (np.random.random() - 0.5) * 0.005 # Reduced noise for cleaner line
-            lng += (np.random.random() - 0.5) * 0.005
+            import random
+            lat += (random.random() - 0.5) * 0.005
+            lng += (random.random() - 0.5) * 0.005
             
         path.append([lat, lng])
         
