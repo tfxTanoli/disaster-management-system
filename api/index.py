@@ -1,3 +1,5 @@
+from fastapi import FastAPI
+from mangum import Mangum
 import sys
 import os
 
@@ -5,3 +7,6 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from backend.fast_server import app
+
+# Wrap FastAPI app with Mangum for serverless deployment
+handler = Mangum(app)
