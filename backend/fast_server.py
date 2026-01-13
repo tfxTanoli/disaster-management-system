@@ -1,9 +1,6 @@
-
-import numpy as np
+import requests
 import sys
 import os
-import joblib
-import requests
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -59,18 +56,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Load Model ---
-MODEL_PATH = os.path.join(os.path.dirname(__file__), '../Model/output/model.joblib')
-try:
-    if os.path.exists(MODEL_PATH):
-        model_artifacts = joblib.load(MODEL_PATH)
-        print(f"Model loaded from {MODEL_PATH}")
-    else:
-        print(f"Warning: Model not found at {MODEL_PATH}. Using mock predictions.")
-        model_artifacts = None
-except Exception as e:
-    print(f"Error loading model: {e}")
-    model_artifacts = None
+# --- Load Model (Pure Python) ---
+from inference import InferenceEngine
+engine = InferenceEngine()
 
 # --- Schemas ---
 class Location(BaseModel):
@@ -83,6 +71,7 @@ class PredictionRequest(BaseModel):
     rainfall: Optional[float] = 0.0
     river_level: Optional[float] = 0.0
     soil_moisture: Optional[float] = 0.0
+    district: Optional[str] = None # Added field locally to be safe
 
 class RouteRequest(BaseModel):
     start: Location
@@ -117,107 +106,37 @@ def get_risk_level(prob):
 
 @app.get("/")
 def health_check():
-    return {"status": "active", "model_loaded": model_artifacts is not None}
+    return {"status": "active", "model_loaded": engine.loaded}
 
 @app.post("/predict")
 def predict_risk(req: PredictionRequest):
     """
     Predict disaster risk based on location and environmental data.
     """
-    if model_artifacts:
+    if engine.loaded:
         try:
-            # Prepare input for model
-            # Note: The model expects specific features. 
-            # We map basic inputs to model features, filling missing ones with defaults.
-            
-            features = model_artifacts['features']
-            
-            # 1. Build initial dict with all basic mappings
-            current_data = {
-                'Latitude': req.latitude,
-                'Longitude': req.longitude,
-                'District': req.district if req.district else "Unknown", 
-                'Attribute 1': 'Unknown', 
-                'Attribute 2': 'Unknown'
-            }
-
-            # 2. HEURISTIC INJECTION: Force known High Risk triggers
-            if 'encoders' in model_artifacts:
-                encs = model_artifacts['encoders']
-                
-                def set_trigger(col, val):
-                    if col in features and col in encs:
-                        if val in encs[col].classes_:
-                            current_data[col] = val
-                            
-                # Rainfall Triggers
-                if req.rainfall and req.rainfall > 40:
-                    set_trigger('Attribute 2', 'Heavy Rainfall') 
-                    set_trigger('Attribute 3', 'Heavy Rainfall')
-                    set_trigger('Attribute 4', 'Heavy Rainfall') 
-                
-                # River Level Triggers
-                if req.river_level and req.river_level > 15:
-                    set_trigger('Attribute 2', 'Glacier Melting')
-                    set_trigger('Attribute 3', 'Glacier Melting')
-                    set_trigger('Attribute 4', 'Glacier Melting')
-                    set_trigger('Attribute 1', 'River Flood')
-
-            # 3. Construct Feature Vector (Ordered List)
-            vector = []
-            
-            for col in features:
-                # Default to 0 if column missing from our constructed data
-                val = current_data.get(col, 0)
-                
-                # Handle Encoders (Categorical -> Numeric)
-                if 'encoders' in model_artifacts and col in model_artifacts['encoders']:
-                    encoder = model_artifacts['encoders'][col]
-                    val_str = str(val)
-                    
-                    # Safe transform
-                    if val_str in encoder.classes_:
-                        # transform returns array, we take first element
-                        val = encoder.transform([val_str])[0]
-                    else:
-                        # Fallback for unknown categories
-                        val = encoder.transform([encoder.classes_[0]])[0]
-                
-                vector.append(val)
-                        
-            # 4. Scale inputs
-            # Scaler expects 2D array
-            X_input = np.array([vector])
-            X_scaled = model_artifacts['scaler'].transform(X_input)
-            
-            # Predict
-            model = model_artifacts['model']
-            print(f"DEBUG: Predicting for District: {req.district}")
-            print(f"DEBUG: Input Vector shape: {X_scaled.shape}")
-            
-            probs = model.predict_proba(X_scaled)[0]
-            max_idx = np.argmax(probs)
-            pred_class = model.classes_[max_idx]
-            conf = float(probs[max_idx])
-            
-            print(f"DEBUG: Prediction: {pred_class}, Confidence: {conf}")
-
-            risk = get_risk_level(conf)
-            recs = SAFETY_RECOMMENDATIONS.get(pred_class, ["Stay alert."])
-            
-            return {
-                "prediction": pred_class,
-                "risk_level": risk,
-                "confidence": round(conf * 100, 1),
-                "visual_color": "#ef4444" if risk == "Critical" else "#f97316" if risk == "Moderate" else "#10b981", 
-                "recommendations": recs
+            inputs = {
+                'rainfall': req.rainfall,
+                'river_level': req.river_level,
+                'District': getattr(req, 'district', 'Unknown') # Handle if Pydantic model doesn't have district field explicitly sometimes
             }
             
+            result = engine.predict_risk(req.latitude, req.longitude, inputs)
+            
+            if result:
+                pred_class = result['class']
+                conf = result['confidence']
+                risk = get_risk_level(conf)
+                
+                return {
+                    "prediction": pred_class,
+                    "risk_level": risk,
+                    "confidence": round(conf * 100, 1),
+                    "visual_color": "#ef4444" if risk == "Critical" else "#f97316" if risk == "Moderate" else "#10b981", 
+                    "recommendations": SAFETY_RECOMMENDATIONS.get(pred_class, ["Stay alert."])
+                }
         except Exception as e:
             print(f"Prediction Error: {e}")
-            import traceback
-            traceback.print_exc()
-            # Fallback to mock if model fails
             pass
 
     # Mock Fallback logic if model missing or failed
