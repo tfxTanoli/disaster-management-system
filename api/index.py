@@ -1,5 +1,3 @@
-from fastapi import FastAPI
-from mangum import Mangum
 import sys
 import os
 
@@ -8,5 +6,5 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from backend.fast_server import app
 
-# Wrap FastAPI app with Mangum for serverless deployment
-handler = Mangum(app)
+# Vercel expects 'app' to be the ASGI application
+# FastAPI is already an ASGI app, no wrapper needed
