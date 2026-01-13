@@ -23,28 +23,39 @@ app = FastAPI(title="GBDMS Risk Engine", version="1.0")
 # --- Initialize Firebase Admin SDK ---
 try:
     if not firebase_admin._apps:
-        cred = credentials.Certificate({
-            "type": "service_account",
-            "project_id": os.getenv("FIREBASE_ADMIN_PROJECT_ID"),
-            "private_key_id": os.getenv("FIREBASE_ADMIN_PRIVATE_KEY_ID"),
-            "private_key": os.getenv("FIREBASE_ADMIN_PRIVATE_KEY").replace('\\n', '\n'),
-            "client_email": os.getenv("FIREBASE_ADMIN_CLIENT_EMAIL"),
-            "client_id": os.getenv("FIREBASE_ADMIN_CLIENT_ID"),
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token",
-            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-            "client_x509_cert_url": os.getenv("FIREBASE_ADMIN_CLIENT_CERT_URL")
-        })
+        # Check if all required env vars exist
+        required_vars = [
+            "FIREBASE_ADMIN_PROJECT_ID",
+            "FIREBASE_ADMIN_PRIVATE_KEY_ID",
+            "FIREBASE_ADMIN_PRIVATE_KEY",
+            "FIREBASE_ADMIN_CLIENT_EMAIL",
+            "FIREBASE_ADMIN_CLIENT_ID",
+            "FIREBASE_ADMIN_CLIENT_CERT_URL",
+            "VITE_FIREBASE_DATABASE_URL"
+        ]
         
-        # Initialize with Database URL
-        db_url = os.getenv("VITE_FIREBASE_DATABASE_URL") 
-        # Note: VITE_ variables might not be loaded by python-dotenv if in .env, wait. 
-        # python-dotenv loads everything in .env so it's fine.
+        missing_vars = [var for var in required_vars if not os.getenv(var)]
         
-        firebase_admin.initialize_app(cred, {
-            'databaseURL': db_url 
-        })
-        print("Firebase Admin SDK Initialized Successfully")
+        if missing_vars:
+            print(f"Missing environment variables: {missing_vars}")
+            print("Firebase Admin SDK will not be initialized")
+        else:
+            cred = credentials.Certificate({
+                "type": "service_account",
+                "project_id": os.getenv("FIREBASE_ADMIN_PROJECT_ID"),
+                "private_key_id": os.getenv("FIREBASE_ADMIN_PRIVATE_KEY_ID"),
+                "private_key": os.getenv("FIREBASE_ADMIN_PRIVATE_KEY").replace('\\n', '\n'),
+                "client_email": os.getenv("FIREBASE_ADMIN_CLIENT_EMAIL"),
+                "client_id": os.getenv("FIREBASE_ADMIN_CLIENT_ID"),
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+                "client_x509_cert_url": os.getenv("FIREBASE_ADMIN_CLIENT_CERT_URL")
+            })
+            
+            db_url = os.getenv("VITE_FIREBASE_DATABASE_URL")
+            firebase_admin.initialize_app(cred, {'databaseURL': db_url})
+            print("Firebase Admin SDK Initialized Successfully")
 except Exception as e:
     print(f"Failed to initialize Firebase Admin SDK: {e}")
 
