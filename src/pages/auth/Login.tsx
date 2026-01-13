@@ -1,11 +1,36 @@
+import { useState } from "react";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import { useNavigate, Link } from "react-router-dom";
+import { Loader2, ShieldAlert, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { ShieldAlert, ArrowLeft } from "lucide-react";
-import { Link } from "react-router-dom";
 
 export function Login() {
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
+    const navigate = useNavigate();
+
+    const handleLogin = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError("");
+        setLoading(true);
+
+        try {
+            await signInWithEmailAndPassword(auth, email, password);
+            navigate("/"); // Redirect to home, AuthContext will update state
+        } catch (err: any) {
+            console.error("Login error:", err);
+            setError("Invalid email or password. Please try again.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="min-h-screen grid lg:grid-cols-2">
             {/* Left: Branding & Info */}
@@ -52,21 +77,41 @@ export function Login() {
                                 Enter your email below to access your dashboard
                             </CardDescription>
                         </CardHeader>
-                        <CardContent className="grid gap-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="email">Email</Label>
-                                <Input id="email" type="email" placeholder="name@example.com" />
-                            </div>
-                            <div className="grid gap-2">
-                                <div className="flex items-center justify-between">
-                                    <Label htmlFor="password">Password</Label>
-                                    <Link to="#" className="text-xs text-blue-600 hover:underline">Forgot password?</Link>
+                        <CardContent>
+                            <form onSubmit={handleLogin} className="grid gap-4">
+                                {error && (
+                                    <div className="bg-red-50 text-red-600 text-sm p-3 rounded-md border border-red-200">
+                                        {error}
+                                    </div>
+                                )}
+                                <div className="grid gap-2">
+                                    <Label htmlFor="email">Email</Label>
+                                    <Input
+                                        id="email"
+                                        type="email"
+                                        placeholder="name@example.com"
+                                        required
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                    />
                                 </div>
-                                <Input id="password" type="password" />
-                            </div>
-                            <Button className="w-full bg-slate-900 hover:bg-slate-800 text-white mt-2">
-                                Sign In
-                            </Button>
+                                <div className="grid gap-2">
+                                    <div className="flex items-center justify-between">
+                                        <Label htmlFor="password">Password</Label>
+                                        <Link to="#" className="text-xs text-blue-600 hover:underline">Forgot password?</Link>
+                                    </div>
+                                    <Input
+                                        id="password"
+                                        type="password"
+                                        required
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                    />
+                                </div>
+                                <Button className="w-full bg-slate-900 hover:bg-slate-800 text-white mt-2" disabled={loading}>
+                                    {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : "Sign In"}
+                                </Button>
+                            </form>
                         </CardContent>
                         <CardFooter className="flex flex-col gap-2 border-t pt-6 text-center text-sm text-slate-600">
                             Don't have an account?{" "}

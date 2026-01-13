@@ -1,13 +1,17 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { ProtectedRoute } from './components/layout/ProtectedRoute';
 import { PublicLayout } from './components/layout/PublicLayout';
 import { AdminLayout } from './components/layout/AdminLayout';
 
 // Admin Pages
-import { Dashboard } from './pages/Dashboard';
-import { Alerts } from './pages/Alerts';
+// Admin Pages
+import { Dashboard } from './pages/admin/Dashboard';
+import { AlertsManager } from './pages/admin/AlertsManager';
 import { RiskAssessment } from './pages/admin/RiskAssessment';
 import { Inventory } from './pages/admin/Inventory';
+import { AdminLiveMap } from './pages/admin/AdminLiveMap';
+import { AdminReports } from './pages/admin/AdminReports';
 
 // Public Pages
 import { LandingPage } from './pages/public/LandingPage';
@@ -24,46 +28,59 @@ import { Forecast } from './pages/public/Forecast';
 import { Privacy } from './pages/public/Privacy';
 
 // Auth Pages
+// Auth Pages
 import { Login } from './pages/auth/Login';
 import { Signup } from './pages/auth/Signup';
 import { RiskMap } from './pages/public/RiskMap';
+import { Blogs } from './pages/public/Blogs';
+import { Subscription } from './pages/public/Subscription';
 
 function App() {
   return (
     <AuthProvider>
       <Router>
         <Routes>
-          {/* Public Routes */}
+
+          {/* Public Routes (Accessible to everyone) */}
           <Route element={<PublicLayout />}>
             <Route path="/" element={<LandingPage />} />
-            <Route path="/alerts" element={<PublicAlerts />} />
-            <Route path="/guidelines" element={<Guidelines />} />
-            <Route path="/report-incident" element={<ReportIncident />} />
             <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />
-            <Route path="/damage-assessment" element={<DamageAssessment />} />
+            <Route path="/guidelines" element={<Guidelines />} />
+            <Route path="/alerts" element={<PublicAlerts />} />
             <Route path="/facilities" element={<Facilities />} />
             <Route path="/ngos" element={<Ngo />} />
             <Route path="/videos" element={<Videos />} />
             <Route path="/forecast" element={<Forecast />} />
-            <Route path="/risk-map" element={<RiskMap />} />
             <Route path="/privacy" element={<Privacy />} />
+            <Route path="/blogs" element={<Blogs />} />
+            <Route path="/subscription" element={<Subscription />} />
+          </Route>
+
+          {/* Protected Public Routes (Registered Users & Admins) */}
+          <Route element={<ProtectedRoute allowedRoles={['user', 'admin']} />}>
+            <Route element={<PublicLayout />}>
+              <Route path="/risk-map" element={<RiskMap />} />
+              <Route path="/report-incident" element={<ReportIncident />} />
+              <Route path="/damage-assessment" element={<DamageAssessment />} />
+            </Route>
           </Route>
 
           {/* Authentication Routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
 
-          {/* Admin Routes */}
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<Navigate to="/admin/dashboard" replace />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="risk-assessment" element={<RiskAssessment />} />
-            <Route path="alerts" element={<Alerts />} />
-            <Route path="inventory" element={<Inventory />} />
-            {/* Placeholders for future routes */}
-            <Route path="reports" element={<Dashboard />} />
-            <Route path="live-map" element={<Dashboard />} />
+          {/* Admin Routes (Admin Only) */}
+          <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<Navigate to="/admin/dashboard" replace />} />
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="risk-assessment" element={<RiskAssessment />} />
+              <Route path="alerts" element={<AlertsManager />} />
+              <Route path="inventory" element={<Inventory />} />
+              <Route path="reports" element={<AdminReports />} />
+              <Route path="live-map" element={<AdminLiveMap />} />
+            </Route>
           </Route>
 
           {/* Catch all */}

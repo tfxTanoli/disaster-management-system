@@ -12,10 +12,12 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/context/AuthContext";
 
 export function AdminLayout() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const location = useLocation();
+    const { user, logout } = useAuth();
 
     const isActive = (path: string) => {
         return location.pathname === path ? "bg-slate-800 text-white" : "text-slate-400 hover:text-white hover:bg-slate-800";
@@ -65,13 +67,18 @@ export function AdminLayout() {
                     </Link>
                 </div>
 
-                <div className="p-4 border-t border-slate-800">
-                    <Link to="/login">
+                <div className="p-4 border-t border-slate-800 space-y-2">
+                    <Link to="/">
                         <Button variant="ghost" className={`w-full text-slate-400 hover:text-white hover:bg-slate-800 ${isSidebarOpen ? 'justify-start' : 'justify-center'}`}>
-                            <LogOut className="h-5 w-5" />
-                            {isSidebarOpen && <span className="ml-3">Sign Out</span>}
+                            <ShieldAlert className="h-5 w-5" />
+                            {isSidebarOpen && <span className="ml-3">Back to App</span>}
                         </Button>
                     </Link>
+
+                    <Button variant="ghost" onClick={() => logout()} className={`w-full text-slate-400 hover:text-red-500 hover:bg-slate-800 ${isSidebarOpen ? 'justify-start' : 'justify-center'}`}>
+                        <LogOut className="h-5 w-5" />
+                        {isSidebarOpen && <span className="ml-3">Sign Out</span>}
+                    </Button>
                 </div>
             </aside>
 
@@ -83,9 +90,9 @@ export function AdminLayout() {
                     </button>
 
                     <div className="flex items-center space-x-4">
-                        <span className="text-sm font-medium text-slate-600">Admin User</span>
+                        <span className="text-sm font-medium text-slate-600">{user?.name || "Admin"}</span>
                         <div className="h-8 w-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold">
-                            A
+                            {user?.name ? user.name[0].toUpperCase() : "A"}
                         </div>
                     </div>
                 </header>

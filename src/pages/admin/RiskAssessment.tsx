@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { AlertTriangle, CloudRain, Waves, ArrowRight, RefreshCcw } from "lucide-react";
+import { AlertTriangle, CloudRain, Waves, ArrowRight, RefreshCcw, Loader2 } from "lucide-react";
 
 export function RiskAssessment() {
     // State for inputs
@@ -12,41 +12,62 @@ export function RiskAssessment() {
     const [soilMoisture, setSoilMoisture] = useState([60]);
 
     // State for result
-    const [riskScore, setRiskScore] = useState<number | null>(null);
+    const [riskData, setRiskData] = useState<{
+        prediction: string;
+        risk_level: string;
+        confidence: number;
+        recommendations: string[];
+    } | null>(null);
+
     const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-    // Mock AI Prediction Logic
-    const calculateRisk = () => {
+    const calculateRisk = async () => {
         setIsAnalyzing(true);
+        setRiskData(null);
 
-        // Simulate API delay
-        setTimeout(() => {
-            // Logic: Higher inputs = Higher Risk
-            // Normalized roughly to 0-100 scale
-            const rScore = (rainfall[0] / 300) * 40; // Max 300mm
-            const lScore = (riverLevel[0] / 30) * 40; // Max 30m
-            const sScore = (soilMoisture[0] / 100) * 20; // Max 100%
-
-            const total = Math.min(Math.round(rScore + lScore + sScore), 100);
-            setRiskScore(total);
+        try {
+            // Using a central Gilgit coordinate as reference for the manual assessment
+            const response = await fetch('http://localhost:8000/predict', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    latitude: 35.9208,
+                    longitude: 74.3089,
+                    rainfall: rainfall[0],
+                    river_level: riverLevel[0],
+                    soil_moisture: soilMoisture[0]
+                }),
+            });
+            const data = await response.json();
+            setRiskData(data);
+        } catch (error) {
+            console.error("Analysis Error:", error);
+            // Fallback
+            setRiskData({
+                prediction: "Service Unavailable",
+                risk_level: "Unknown",
+                confidence: 0,
+                recommendations: ["Ensure backend server is running."]
+            });
+        } finally {
             setIsAnalyzing(false);
-        }, 1500);
+        }
     };
 
     const resetForm = () => {
         setRainfall([0]);
         setRiverLevel([0]);
         setSoilMoisture([0]);
-        setRiskScore(null);
+        setRiskData(null);
     };
 
-    const getRiskStatus = (score: number) => {
-        if (score < 30) return { label: "SAFE", color: "text-green-600", bg: "bg-green-100", border: "border-green-500" };
-        if (score < 70) return { label: "WARNING", color: "text-orange-600", bg: "bg-orange-100", border: "border-orange-500" };
+    const getRiskStatus = (level: string) => {
+        if (level === "Low") return { label: "SAFE", color: "text-green-600", bg: "bg-green-100", border: "border-green-500" };
+        if (level === "Moderate") return { label: "WARNING", color: "text-orange-600", bg: "bg-orange-100", border: "border-orange-500" };
         return { label: "CRITICAL", color: "text-red-600", bg: "bg-red-100", border: "border-red-500" };
     };
 
-    const status = riskScore !== null ? getRiskStatus(riskScore) : null;
+    const status = riskData ? getRiskStatus(riskData.risk_level) : null;
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
@@ -86,7 +107,7 @@ export function RiskAssessment() {
                                     onValueChange={setRainfall}
                                     className="py-2"
                                 />
-                                <p className="text-xs text-slate-400">Normal range: 0-50mm. Flood warning: {'&gt;'}100mm.</p>
+                                <p className="text-xs text-slate-400">Normal range: 0-50mm. Flood warning: {'>'}100mm.</p>
                             </div>
 
                             {/* River Level Input */}
@@ -103,7 +124,7 @@ export function RiskAssessment() {
                                     onValueChange={setRiverLevel}
                                     className="py-2"
                                 />
-                                <p className="text-xs text-slate-400">Danger mark: {'&gt;'}20m for major rivers.</p>
+                                <p className="text-xs text-slate-400">Danger mark: {'>'}20m for major rivers.</p>
                             </div>
 
                             {/* Soil Moisture Input */}
@@ -131,8 +152,15 @@ export function RiskAssessment() {
                         onClick={calculateRisk}
                         disabled={isAnalyzing}
                     >
-                        {isAnalyzing ? "Processing AI Model..." : "Calculate Risk Probability"}
-                        {!isAnalyzing && <ArrowRight className="ml-2 h-5 w-5" />}
+                        {isAnalyzing ? (
+                            <>
+                                <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Processing AI Model...
+                            </>
+                        ) : (
+                            <>
+                                Calculate Risk Probability <ArrowRight className="ml-2 h-5 w-5" />
+                            </>
+                        )}
                     </Button>
                 </div>
 
@@ -146,7 +174,7 @@ export function RiskAssessment() {
                         </CardHeader>
                         <CardContent className="flex flex-col items-center justify-center pt-10 pb-10 min-h-[400px]">
 
-                            {riskScore === null ? (
+                            {!riskData ? (
                                 <div className="text-center text-slate-400 space-y-4">
                                     <div className="w-32 h-32 rounded-full border-4 border-slate-100 border-t-slate-300 animate-spin mx-auto mb-6 opacity-0"></div>
                                     <Waves className="h-24 w-24 mx-auto opacity-20 mb-4" />
@@ -155,20 +183,24 @@ export function RiskAssessment() {
                             ) : (
                                 <div className="text-center w-full animate-in zoom-in duration-300">
                                     <div className={`w-40 h-40 rounded-full ${status?.bg} flex items-center justify-center mx-auto mb-6 relative border-4 ${status?.border}`}>
-                                        <span className={`text-4xl font-black ${status?.color}`}>{riskScore}%</span>
-                                        <div className="absolute -bottom-3 bg-white px-3 py-1 rounded-full shadow-sm text-xs font-bold border">RISK SCORE</div>
+                                        <div className="flex flex-col items-center">
+                                            <span className={`text-4xl font-black ${status?.color}`}>{riskData.confidence}%</span>
+                                            <span className="text-xs text-slate-500 font-medium mt-1">CONFIDENCE</span>
+                                        </div>
                                     </div>
 
                                     <h3 className={`text-3xl font-black mb-2 ${status?.color}`}>{status?.label}</h3>
-                                    <p className="text-slate-500 mb-8 max-w-[200px] mx-auto">
-                                        Based on current hydrological and geological data inputs.
-                                    </p>
+                                    <p className="text-xl font-bold text-slate-800 mb-2">{riskData.prediction}</p>
+
+                                    <div className="mb-8 max-w-[220px] mx-auto text-sm text-slate-600">
+                                        <ul className="list-disc text-left pl-4 space-y-1">
+                                            {riskData.recommendations.map((rec, i) => (
+                                                <li key={i}>{rec}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
 
                                     <div className="space-y-3 text-left bg-slate-50 p-4 rounded-lg text-sm">
-                                        <div className="flex justify-between border-b pb-2">
-                                            <span className="text-slate-500">Confidence Score:</span>
-                                            <span className="font-semibold text-slate-900">92.4%</span>
-                                        </div>
                                         <div className="flex justify-between border-b pb-2">
                                             <span className="text-slate-500">Model Version:</span>
                                             <span className="font-semibold text-slate-900">GB-v2.1</span>

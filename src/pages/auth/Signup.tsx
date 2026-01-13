@@ -1,11 +1,77 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { ShieldAlert, ArrowLeft, CheckCircle2 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { ShieldAlert, ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 
 export function Signup() {
+    const [formData, setFormData] = useState({
+        firstName: "",
+        lastName: "",
+        email: "",
+        password: "",
+        district: ""
+    });
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
+    const [success, setSuccess] = useState(false);
+    const navigate = useNavigate();
+
+    const handleSignup = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        setError("");
+
+        try {
+            // 1. Create Auth User
+            const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+            const user = userCredential.user;
+
+            // 2. Update Profile Display Name
+            const fullName = `${formData.firstName} ${formData.lastName}`;
+            await updateProfile(user, {
+                displayName: fullName
+            });
+
+            // 3. Determine Role
+            const role = formData.email.endsWith("@gbdms.gov.pk") ? "admin" : "user";
+
+            // 4. Create User Entry in Realtime Database
+            const { ref, set } = await import("firebase/database");
+            const { database } = await import("@/lib/firebase");
+            const userRef = ref(database, `users/${user.uid}`);
+
+            await set(userRef, {
+                name: fullName,
+                email: formData.email,
+                district: formData.district,
+                role: role,
+                subscriptionStatus: "basic",
+                createdAt: new Date().toISOString()
+            });
+
+            // 5. Show Success & Redirect
+            setSuccess(true);
+            setTimeout(() => {
+                navigate("/");
+            }, 2000);
+
+        } catch (err: any) {
+            console.error("Signup Error:", err);
+            if (err.code === 'auth/email-already-in-use') {
+                setError("This email is already registered. Please login instead.");
+            } else {
+                setError(err.message || "Failed to create account.");
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="min-h-screen grid lg:grid-cols-2">
             {/* Left: Value Proposition */}
@@ -72,32 +138,82 @@ export function Signup() {
                                 Enter your details to register for the DMS portal
                             </CardDescription>
                         </CardHeader>
-                        <CardContent className="grid gap-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="first-name">First name</Label>
-                                    <Input id="first-name" placeholder="John" />
+                        <CardContent>
+                            {success ? (
+                                <div className="flex flex-col items-center justify-center space-y-4 py-8 animate-in fade-in zoom-in duration-300">
+                                    <div className="h-16 w-16 bg-green-100 rounded-full flex items-center justify-center">
+                                        <CheckCircle2 className="h-8 w-8 text-green-600" />
+                                    </div>
+                                    <div className="text-center space-y-2">
+                                        <h3 className="text-xl font-bold text-slate-900">Account Created!</h3>
+                                        <p className="text-slate-500">Welcome to the network. Redirecting to dashboard...</p>
+                                    </div>
+                                    <Loader2 className="h-6 w-6 animate-spin text-slate-400 mt-4" />
                                 </div>
-                                <div className="grid gap-2">
-                                    <Label htmlFor="last-name">Last name</Label>
-                                    <Input id="last-name" placeholder="Doe" />
-                                </div>
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="email">Email</Label>
-                                <Input id="email" type="email" placeholder="name@example.com" />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="district">District</Label>
-                                <Input id="district" placeholder="e.g. Gilgit, Skardu, Hunza" />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="password">Password</Label>
-                                <Input id="password" type="password" />
-                            </div>
-                            <Button className="w-full bg-red-600 hover:bg-red-700 text-white mt-2">
-                                Create Account
-                            </Button>
+                            ) : (
+                                <form onSubmit={handleSignup} className="grid gap-4">
+                                    {error && (
+                                        <div className="bg-red-50 text-red-600 text-sm p-3 rounded-md border border-red-200">
+                                            {error}
+                                        </div>
+                                    )}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="first-name">First name</Label>
+                                            <Input
+                                                id="first-name"
+                                                placeholder="John"
+                                                required
+                                                value={formData.firstName}
+                                                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="last-name">Last name</Label>
+                                            <Input
+                                                id="last-name"
+                                                placeholder="Doe"
+                                                required
+                                                value={formData.lastName}
+                                                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="email">Email</Label>
+                                        <Input
+                                            id="email"
+                                            type="email"
+                                            placeholder="name@example.com"
+                                            required
+                                            value={formData.email}
+                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="district">District</Label>
+                                        <Input
+                                            id="district"
+                                            placeholder="e.g. Gilgit, Skardu, Hunza"
+                                            value={formData.district}
+                                            onChange={(e) => setFormData({ ...formData, district: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="password">Password</Label>
+                                        <Input
+                                            id="password"
+                                            type="password"
+                                            required
+                                            value={formData.password}
+                                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                        />
+                                    </div>
+                                    <Button className="w-full bg-red-600 hover:bg-red-700 text-white mt-2" disabled={loading}>
+                                        {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : "Create Account"}
+                                    </Button>
+                                </form>
+                            )}
                         </CardContent>
                         <CardFooter className="flex flex-col gap-2 border-t pt-6 text-center text-sm text-slate-600">
                             Already have an account?{" "}

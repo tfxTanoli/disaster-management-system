@@ -1,1 +1,0 @@
-src/pages/public/About.tsx(1,52): error TS6133: 'CardDescription' is declared but its value is never read.

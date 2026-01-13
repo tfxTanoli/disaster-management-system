@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Security
+.env
+disaster-management-syst-6ab39-firebase-adminsdk-fbsvc-691884c540.json

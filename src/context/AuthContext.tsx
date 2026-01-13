@@ -1,54 +1,97 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { auth, database } from "@/lib/firebase";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { ref, get } from "firebase/database";
 
-interface User {
+interface UserData {
     id: string;
-    name: string;
-    role: "admin" | "user" | "guest";
-    email: string;
+    email: string | null;
+    name: string | null;
+    role: "admin" | "user";
+    subscriptionStatus?: "basic" | "premium" | "organization";
 }
 
 interface AuthContextType {
-    user: User | null;
-    login: (role: "admin" | "user") => void;
-    logout: () => void;
+    user: UserData | null;
+    loading: boolean;
+    logout: () => Promise<void>;
     isAuthenticated: boolean;
     isAdmin: boolean;
+    isPremium: boolean;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType>({
+    user: null,
+    loading: true,
+    logout: async () => { },
+    isAuthenticated: false,
+    isAdmin: false,
+    isPremium: false
+});
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-    const [user, setUser] = useState<User | null>(null);
+    const [user, setUser] = useState<UserData | null>(null);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Check local storage for persisted session
-        const storedUser = localStorage.getItem("dms_user");
-        if (storedUser) {
-            setUser(JSON.parse(storedUser));
-        }
+        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+            if (firebaseUser) {
+                // Fetch user role and subscription from Realtime DB
+                try {
+                    const userRef = ref(database, `users/${firebaseUser.uid}`);
+                    const snapshot = await get(userRef);
+                    if (snapshot.exists()) {
+                        const data = snapshot.val();
+                        setUser({
+                            id: firebaseUser.uid,
+                            email: firebaseUser.email,
+                            name: data.name || firebaseUser.displayName,
+                            role: data.role || "user",
+                            subscriptionStatus: data.subscriptionStatus || "basic"
+                        });
+                    } else {
+                        // Fallback purely on Auth (shouldn't happen for reg users)
+                        setUser({
+                            id: firebaseUser.uid,
+                            email: firebaseUser.email,
+                            name: firebaseUser.displayName,
+                            role: "user",
+                            subscriptionStatus: "basic"
+                        });
+                    }
+                } catch (error) {
+                    console.error("Error fetching user data:", error);
+                    // Fallback to basic auth user
+                    setUser({
+                        id: firebaseUser.uid,
+                        email: firebaseUser.email,
+                        name: firebaseUser.displayName || "User",
+                        role: "user",
+                        subscriptionStatus: "basic"
+                    });
+                }
+            } else {
+                setUser(null);
+            }
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
     }, []);
 
-    const login = (role: "admin" | "user") => {
-        const mockUser: User = role === "admin"
-            ? { id: "1", name: "Admin Officer", role: "admin", email: "admin@gbdms.gov.pk" }
-            : { id: "2", name: "Citizen", role: "user", email: "citizen@example.com" };
-
-        setUser(mockUser);
-        localStorage.setItem("dms_user", JSON.stringify(mockUser));
-    };
-
-    const logout = () => {
+    const logout = async () => {
+        await signOut(auth);
         setUser(null);
-        localStorage.removeItem("dms_user");
     };
 
     return (
         <AuthContext.Provider value={{
             user,
-            login,
+            loading,
             logout,
             isAuthenticated: !!user,
-            isAdmin: user?.role === "admin"
+            isAdmin: user?.role === "admin",
+            isPremium: user?.subscriptionStatus === "premium" || user?.subscriptionStatus === "organization" || user?.role === "admin"
         }}>
             {children}
         </AuthContext.Provider>
@@ -62,3 +105,4 @@ export function useAuth() {
     }
     return context;
 }
+

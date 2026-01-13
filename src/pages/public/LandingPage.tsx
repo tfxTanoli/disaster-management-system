@@ -6,8 +6,12 @@ export function LandingPage() {
     return (
         <div className="flex flex-col min-h-screen bg-slate-50">
             {/* Hero Section */}
+            {/* Hero Section */}
             <section className="relative w-full py-24 md:py-32 lg:py-40 bg-slate-900 text-white overflow-hidden">
-                <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1454789476662-53eb23ba5907?q=80&w=2552&auto=format&fit=crop')] bg-cover bg-center opacity-20"></div>
+                <div
+                    className="absolute inset-0 bg-cover bg-center opacity-20"
+                    style={{ backgroundImage: "url('https://images.unsplash.com/photo-1454789476662-53eb23ba5907?q=80&w=2552&auto=format&fit=crop')" }}
+                ></div>
                 <div className="container relative z-10 mx-auto px-4 md:px-6 flex flex-col items-center text-center space-y-6">
                     <div className="inline-flex items-center rounded-full border border-red-500/50 bg-red-500/10 px-3 py-1 text-sm font-medium text-red-500 backdrop-blur-sm">
                         <Activity className="mr-2 h-4 w-4 animate-pulse" />
@@ -124,7 +128,7 @@ export function LandingPage() {
                         <div className="md:w-1/2 relative">
                             <div className="absolute -inset-4 bg-gradient-to-r from-red-100 to-orange-100 rounded-3xl blur-2xl opacity-50 -z-10"></div>
                             <img
-                                src="https://images.unsplash.com/photo-1599908682970-17aa38f87029?q=80&w=2669&auto=format&fit=crop"
+                                src="https://images.unsplash.com/photo-1542601906990-24d4c16419d9?q=80&w=2670&auto=format&fit=crop"
                                 alt="Disaster Response Team"
                                 className="rounded-2xl shadow-2xl w-full h-auto object-cover transform transition-transform hover:scale-[1.01]"
                             />
