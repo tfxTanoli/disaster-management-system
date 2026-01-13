@@ -1,5 +1,4 @@
 
-import pandas as pd
 import numpy as np
 import sys
 import os
@@ -132,68 +131,64 @@ def predict_risk(req: PredictionRequest):
             # We map basic inputs to model features, filling missing ones with defaults.
             
             features = model_artifacts['features']
-            input_data = {
+            
+            # 1. Build initial dict with all basic mappings
+            current_data = {
                 'Latitude': req.latitude,
                 'Longitude': req.longitude,
-                'District': req.district if req.district else "Unknown", # Explicit mapping
-                # Map other inputs if trained on them, else 0
+                'District': req.district if req.district else "Unknown", 
                 'Attribute 1': 'Unknown', 
                 'Attribute 2': 'Unknown'
             }
-            
-            # Simple DataFrame creation
-            input_df = pd.DataFrame([input_data])
-            
-            # Add missing columns with smart mapping
-            for col in features:
-                if col not in input_df.columns:
-                    input_df[col] = 0
 
-            # HEURISTIC INJECTION: Force known High Risk triggers
-            # The model is sensitive to specific strings like "Heavy Rainfall"
+            # 2. HEURISTIC INJECTION: Force known High Risk triggers
             if 'encoders' in model_artifacts:
                 encs = model_artifacts['encoders']
                 
                 def set_trigger(col, val):
                     if col in features and col in encs:
                         if val in encs[col].classes_:
-                            input_df[col] = val
-                
-                # If high rainfall, inject "Heavy Rainfall" trigger into potential columns
+                            current_data[col] = val
+                            
+                # Rainfall Triggers
                 if req.rainfall and req.rainfall > 40:
-                    set_trigger('Attribute 2', 'Heavy Rainfall') # Landslide Trigger
+                    set_trigger('Attribute 2', 'Heavy Rainfall') 
                     set_trigger('Attribute 3', 'Heavy Rainfall')
-                    set_trigger('Attribute 4', 'Heavy Rainfall') # GLOF Trigger
+                    set_trigger('Attribute 4', 'Heavy Rainfall') 
                 
-                # If high river level, inject "Glacier Melting" (common GLOF/Flood trigger)
+                # River Level Triggers
                 if req.river_level and req.river_level > 15:
                     set_trigger('Attribute 2', 'Glacier Melting')
                     set_trigger('Attribute 3', 'Glacier Melting')
                     set_trigger('Attribute 4', 'Glacier Melting')
-                    # Also try to hint Flood type if possible
                     set_trigger('Attribute 1', 'River Flood')
 
+            # 3. Construct Feature Vector (Ordered List)
+            vector = []
             
-            # Filter
-            input_df = input_df[features]
-            
-            # Encode/Scale
-            for col, encoder in model_artifacts['encoders'].items():
-                if col in input_df.columns:
-                    # Handle District and other categorical columns
-                    input_df[col] = input_df[col].astype(str)
+            for col in features:
+                # Default to 0 if column missing from our constructed data
+                val = current_data.get(col, 0)
+                
+                # Handle Encoders (Categorical -> Numeric)
+                if 'encoders' in model_artifacts and col in model_artifacts['encoders']:
+                    encoder = model_artifacts['encoders'][col]
+                    val_str = str(val)
                     
-                    # Safe transform: if value not in encoder (e.g. unknown district), map to first class or handled value
-                    # For District, we iterate and check
-                    known_classes = set(encoder.classes_)
-                    input_df[col] = input_df[col].apply(lambda x: x if x in known_classes else encoder.classes_[0])
-                    
-                    try:
-                        input_df[col] = encoder.transform(input_df[col])
-                    except:
-                        input_df[col] = 0
+                    # Safe transform
+                    if val_str in encoder.classes_:
+                        # transform returns array, we take first element
+                        val = encoder.transform([val_str])[0]
+                    else:
+                        # Fallback for unknown categories
+                        val = encoder.transform([encoder.classes_[0]])[0]
+                
+                vector.append(val)
                         
-            X_scaled = model_artifacts['scaler'].transform(input_df)
+            # 4. Scale inputs
+            # Scaler expects 2D array
+            X_input = np.array([vector])
+            X_scaled = model_artifacts['scaler'].transform(X_input)
             
             # Predict
             model = model_artifacts['model']
