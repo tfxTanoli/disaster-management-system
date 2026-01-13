@@ -47,7 +47,8 @@ export function UserManagement() {
         disabled: false
     });
 
-    const API_URL = 'http://localhost:8000/admin/users';
+    const BASE_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    const API_URL = `${BASE_API_URL}/admin/users`;
 
     const fetchUsers = async () => {
         setLoading(true);

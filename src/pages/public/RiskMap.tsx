@@ -22,6 +22,8 @@ const SUPPORTED_DISTRICTS = [
     "Ghizer", "Astore", "Diamer", "Shigar", "Kharmang"
 ];
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 // Helper Types
 interface PredictionResult {
     prediction: string;
@@ -106,8 +108,8 @@ export function RiskMap() {
         const fetchData = async () => {
             try {
                 const [dangerRes, safeRes] = await Promise.all([
-                    fetch('http://localhost:8000/danger-zones'),
-                    fetch('http://localhost:8000/safe-zones')
+                    fetch(`${API_URL}/danger-zones`),
+                    fetch(`${API_URL}/safe-zones`)
                 ]);
 
                 if (dangerRes.ok) {
@@ -133,7 +135,7 @@ export function RiskMap() {
             setLoading(true);
             setLoading(true);
             // Use Backend Proxy to avoid CORS and add User-Agent
-            const response = await fetch(`http://localhost:8000/geocode?q=${encodeURIComponent(searchQuery)}`);
+            const response = await fetch(`${API_URL}/geocode?q=${encodeURIComponent(searchQuery)}`);
             const data = await response.json();
             if (data && data.length > 0) {
                 const { lat, lon, display_name } = data[0];
@@ -189,7 +191,7 @@ export function RiskMap() {
         if (!selectedPos) return;
         setLoading(true);
         try {
-            const response = await fetch('http://localhost:8000/predict', {
+            const response = await fetch(`${API_URL}/predict`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -223,7 +225,7 @@ export function RiskMap() {
         if (!selectedPos) return;
         setLoadingRoute(true);
         try {
-            const response = await fetch('http://localhost:8000/routes', {
+            const response = await fetch(`${API_URL}/routes`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

@@ -1,6 +1,5 @@
 import { Calendar, User, ArrowRight, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
 
 export function Blogs() {
     const articles = [

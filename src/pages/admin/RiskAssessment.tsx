@@ -5,6 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { AlertTriangle, CloudRain, Waves, ArrowRight, RefreshCcw, Loader2 } from "lucide-react";
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 export function RiskAssessment() {
     // State for inputs
     const [rainfall, setRainfall] = useState([45]);
@@ -27,7 +29,7 @@ export function RiskAssessment() {
 
         try {
             // Using a central Gilgit coordinate as reference for the manual assessment
-            const response = await fetch('http://localhost:8000/predict', {
+            const response = await fetch(`${API_URL}/predict`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
