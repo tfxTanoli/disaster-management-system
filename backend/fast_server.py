@@ -62,8 +62,12 @@ app.add_middleware(
 )
 
 # --- Load Model (Pure Python) ---
-from inference import InferenceEngine
-engine = InferenceEngine()
+try:
+    from inference import InferenceEngine
+    engine = InferenceEngine()
+except Exception as e:
+    print(f"Model loading failed: {e}")
+    engine = type('obj', (object,), {'loaded': False})()
 
 # --- Schemas ---
 class Location(BaseModel):
