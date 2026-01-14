@@ -5,10 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Phone, MapPin, Send, Loader2, CheckCircle } from "lucide-react";
+import { Phone, MapPin, Send, Loader2, CheckCircle, Upload } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { database } from "@/lib/firebase";
-import { ref, push, set, serverTimestamp } from "firebase/database";
+import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
@@ -17,6 +16,7 @@ export function ReportIncident() {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
+    const [imageFile, setImageFile] = useState<File | null>(null);
 
     const [formData, setFormData] = useState({
         type: "",
@@ -24,7 +24,7 @@ export function ReportIncident() {
         description: "",
         contact: "",
         name: user?.name || "",
-        imageUrl: ""
+        imageUrl: "" // Can still support manual URL
     });
 
     const handleSubmit = async () => {
@@ -35,17 +35,45 @@ export function ReportIncident() {
 
         setLoading(true);
         try {
-            const reportsRef = ref(database, 'reports');
-            const newReportRef = push(reportsRef);
+            let finalImageUrl = formData.imageUrl;
 
-            await set(newReportRef, {
-                ...formData,
-                userId: user?.id || "anonymous",
-                userEmail: user?.email || "anonymous",
-                status: "pending", // verified, rejected
-                timestamp: serverTimestamp(),
-                createdAt: new Date().toISOString()
-            });
+            // Handle Image Upload if file selected
+            if (imageFile) {
+                const fileExt = imageFile.name.split('.').pop();
+                const fileName = `${Math.random()}.${fileExt}`;
+                const filePath = `${fileName}`;
+
+                const { error: uploadError } = await supabase.storage
+                    .from('evidence')
+                    .upload(filePath, imageFile);
+
+                if (uploadError) {
+                    throw uploadError;
+                }
+
+                const { data: { publicUrl } } = supabase.storage
+                    .from('evidence')
+                    .getPublicUrl(filePath);
+
+                finalImageUrl = publicUrl;
+            }
+
+            const { error: dbError } = await supabase
+                .from('reports')
+                .insert({
+                    type: formData.type,
+                    location: formData.location,
+                    description: formData.description,
+                    contact: formData.contact,
+                    name: formData.name,
+                    image_url: finalImageUrl,
+                    user_id: user?.id || "anonymous",
+                    user_email: user?.email || "anonymous",
+                    status: "pending",
+                    created_at: new Date().toISOString()
+                });
+
+            if (dbError) throw dbError;
 
             setSuccess(true);
             toast.success("Report submitted successfully! Our team will verify it shortly.");
@@ -55,9 +83,9 @@ export function ReportIncident() {
                 navigate("/");
             }, 3000);
 
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error submitting report:", error);
-            toast.error("Failed to submit report. Please try again.");
+            toast.error(error.message || "Failed to submit report. Please try again.");
         } finally {
             setLoading(false);
         }
@@ -138,14 +166,30 @@ export function ReportIncident() {
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="image">Image Evidence URL (Optional)</Label>
+                            <Label htmlFor="image">Evidence (Image)</Label>
+                            <div className="flex gap-2 items-center">
+                                <Input
+                                    id="image-file"
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => {
+                                        if (e.target.files && e.target.files[0]) {
+                                            setImageFile(e.target.files[0]);
+                                        }
+                                    }}
+                                    className="cursor-pointer"
+                                />
+                                <Upload className="h-4 w-4 text-slate-500 shrink-0" />
+                            </div>
+                            <p className="text-xs text-slate-400">Upload an image file.</p>
+                            {/* Optional URL input fallback */}
                             <Input
-                                id="image"
-                                placeholder="http://..."
+                                id="image-url"
+                                placeholder="Or paste Image URL..."
                                 value={formData.imageUrl}
                                 onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                                className="mt-2"
                             />
-                            <p className="text-xs text-slate-400">Paste a direct link to an image if available.</p>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">

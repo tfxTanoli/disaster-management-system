@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { database } from "@/lib/firebase";
-import { ref, onValue, update, remove } from "firebase/database";
+import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,28 +25,64 @@ export function AdminReports() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const reportsRef = ref(database, 'reports');
-        const unsubscribe = onValue(reportsRef, (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                const loadedReports = Object.entries(data).map(([key, value]: [string, any]) => ({
-                    id: key,
-                    ...value
-                }));
-                // Sort by new
-                setReports(loadedReports.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-            } else {
-                setReports([]);
-            }
-            setLoading(false);
-        });
+        const fetchReports = async () => {
+            const { data, error } = await supabase
+                .from('reports')
+                .select('*')
+                .order('created_at', { ascending: false });
 
-        return () => unsubscribe();
+            if (error) {
+                console.error("Error fetching reports:", error);
+            }
+            if (data) setReports(mapReports(data));
+            setLoading(false);
+        };
+
+        fetchReports();
+
+        const subscription = supabase
+            .channel('public:reports')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'reports' }, (payload) => {
+                // Determine event type and update state accordingly
+                if (payload.eventType === 'INSERT') {
+                    setReports(prev => [mapReport(payload.new), ...prev]);
+                } else if (payload.eventType === 'DELETE') {
+                    setReports(prev => prev.filter(r => r.id !== payload.old.id));
+                } else if (payload.eventType === 'UPDATE') {
+                    setReports(prev => prev.map(r => r.id === payload.new.id ? mapReport(payload.new) : r));
+                }
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(subscription);
+        };
     }, []);
+
+    const mapReports = (data: any[]): Report[] => {
+        return data.map(mapReport);
+    }
+
+    const mapReport = (item: any): Report => ({
+        id: item.id,
+        type: item.type,
+        location: item.location,
+        description: item.description,
+        contact: item.contact,
+        name: item.name,
+        status: item.status,
+        createdAt: item.created_at,
+        imageUrl: item.image_url
+    });
 
     const handleUpdateStatus = async (id: string, newStatus: "verified" | "rejected") => {
         try {
-            await update(ref(database, `reports/${id}`), { status: newStatus });
+            const { error } = await supabase
+                .from('reports')
+                .update({ status: newStatus })
+                .eq('id', id);
+
+            if (error) throw error;
             toast.success(`Report marked as ${newStatus}`);
         } catch (error) {
             console.error("Error updating report:", error);
@@ -58,7 +93,12 @@ export function AdminReports() {
     const handleDelete = async (id: string) => {
         if (!confirm("Are you sure you want to permanently delete this report?")) return;
         try {
-            await remove(ref(database, `reports/${id}`));
+            const { error } = await supabase
+                .from('reports')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
             toast.success("Report deleted");
         } catch (error) {
             console.error("Error deleting report:", error);

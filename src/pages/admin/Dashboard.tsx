@@ -24,7 +24,7 @@ export function Dashboard() {
                 <Button className="bg-slate-900 hover:bg-slate-800">Download Report</Button>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Active Alerts</CardTitle>
@@ -67,8 +67,8 @@ export function Dashboard() {
                 </Card>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-                <Card className="col-span-4 shadow-sm">
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-7">
+                <Card className="col-span-1 md:col-span-2 lg:col-span-4 shadow-sm">
                     <CardHeader>
                         <CardTitle>Alert Trends</CardTitle>
                     </CardHeader>
@@ -83,7 +83,7 @@ export function Dashboard() {
                         </ResponsiveContainer>
                     </CardContent>
                 </Card>
-                <Card className="col-span-3 shadow-sm">
+                <Card className="col-span-1 md:col-span-2 lg:col-span-3 shadow-sm">
                     <CardHeader>
                         <CardTitle>Recent Critical Alerts</CardTitle>
                         <CardDescription>High severity alerts requiring attention.</CardDescription>

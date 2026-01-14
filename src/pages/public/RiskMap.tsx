@@ -22,8 +22,6 @@ const SUPPORTED_DISTRICTS = [
     "Ghizer", "Astore", "Diamer", "Shigar", "Kharmang"
 ];
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-
 // Helper Types
 interface PredictionResult {
     prediction: string;
@@ -108,8 +106,8 @@ export function RiskMap() {
         const fetchData = async () => {
             try {
                 const [dangerRes, safeRes] = await Promise.all([
-                    fetch(`${API_URL}/danger-zones`),
-                    fetch(`${API_URL}/safe-zones`)
+                    fetch('http://localhost:8000/danger-zones'),
+                    fetch('http://localhost:8000/safe-zones')
                 ]);
 
                 if (dangerRes.ok) {
@@ -129,16 +127,51 @@ export function RiskMap() {
         fetchData();
     }, []);
 
+    const SEARCH_ALIASES: Record<string, string> = {
+        "hunza": "Karimabad, Hunza",
+        "skardu": "Skardu City",
+        "gilgit": "Gilgit City",
+        "ghizer": "Gahkuch",
+        "ghanche": "Khaplu",
+        "astore": "Eidgah, Astore",
+        "diamer": "Chilas",
+        "nagar": "Nagar Khas",
+        "shigar": "Shigar",
+        "kharmang": "Tolti"
+    };
+
     const handleSearch = async () => {
         if (!searchQuery) return;
         try {
             setLoading(true);
-            setLoading(true);
+
+            // Apply Search Aliases
+            const lowerQuery = searchQuery.trim().toLowerCase();
+            const effectiveQuery = SEARCH_ALIASES[lowerQuery] || searchQuery;
+
             // Use Backend Proxy to avoid CORS and add User-Agent
-            const response = await fetch(`${API_URL}/geocode?q=${encodeURIComponent(searchQuery)}`);
+            const response = await fetch(`http://localhost:8000/geocode?q=${encodeURIComponent(effectiveQuery)}`);
             const data = await response.json();
             if (data && data.length > 0) {
-                const { lat, lon, display_name } = data[0];
+                // IMPROVED SELECTION: Prioritize places/cities over waterways/natural features
+                // Nominatim often returns the "Gilgit River" (waterway) first for "Gilgit".
+                // We want the City or District (place/administrative).
+                let bestMatch = data[0];
+                const preferredTypes = ['city', 'town', 'village', 'administrative'];
+                const preferredClasses = ['place', 'boundary'];
+
+                // Try to find a match that is a place or boundary
+                const betterMatch = data.find((item: any) =>
+                    preferredTypes.includes(item.type) ||
+                    preferredClasses.includes(item.class) ||
+                    (item.addresstype && preferredTypes.includes(item.addresstype))
+                );
+
+                if (betterMatch) {
+                    bestMatch = betterMatch;
+                }
+
+                const { lat, lon, display_name } = bestMatch;
 
                 // --- District Validation Logic ---
                 // 1. Identify potential district name from query or result
@@ -191,7 +224,7 @@ export function RiskMap() {
         if (!selectedPos) return;
         setLoading(true);
         try {
-            const response = await fetch(`${API_URL}/predict`, {
+            const response = await fetch('http://localhost:8000/predict', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -225,7 +258,7 @@ export function RiskMap() {
         if (!selectedPos) return;
         setLoadingRoute(true);
         try {
-            const response = await fetch(`${API_URL}/routes`, {
+            const response = await fetch('http://localhost:8000/routes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

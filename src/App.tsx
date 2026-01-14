@@ -6,8 +6,9 @@ import { AdminLayout } from './components/layout/AdminLayout';
 
 // Admin Pages
 // Admin Pages
+// Admin Pages
 import { Dashboard } from './pages/admin/Dashboard';
-import { AlertsManager } from './pages/admin/AlertsManager';
+import { AdminContent } from './pages/admin/AdminContent';
 import { RiskAssessment } from './pages/admin/RiskAssessment';
 import { Inventory } from './pages/admin/Inventory';
 import { AdminLiveMap } from './pages/admin/AdminLiveMap';
@@ -16,6 +17,7 @@ import { UserManagement } from './pages/admin/UserManagement';
 
 // Public Pages
 import { LandingPage } from './pages/public/LandingPage';
+import { NewsFeed } from './pages/public/NewsFeed';
 import { PublicAlerts } from './pages/public/PublicAlerts';
 import { Guidelines } from './pages/public/Guidelines';
 import { ReportIncident } from './pages/public/ReportIncident';
@@ -45,6 +47,7 @@ function App() {
           {/* Public Routes (Accessible to everyone) */}
           <Route element={<PublicLayout />}>
             <Route path="/" element={<LandingPage />} />
+            <Route path="/news" element={<NewsFeed />} />
             <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/guidelines" element={<Guidelines />} />
@@ -77,7 +80,7 @@ function App() {
               <Route index element={<Navigate to="/admin/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="risk-assessment" element={<RiskAssessment />} />
-              <Route path="alerts" element={<AlertsManager />} />
+              <Route path="content" element={<AdminContent />} />
               <Route path="inventory" element={<Inventory />} />
               <Route path="reports" element={<AdminReports />} />
               <Route path="live-map" element={<AdminLiveMap />} />

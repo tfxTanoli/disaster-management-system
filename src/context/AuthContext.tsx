@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { auth, database } from "@/lib/firebase";
-import { onAuthStateChanged, signOut } from "firebase/auth";
-import { ref, get } from "firebase/database";
+import { supabase } from "@/lib/supabase";
+import type { Session } from "@supabase/supabase-js";
 
 interface UserData {
     id: string;
@@ -34,53 +33,67 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-            if (firebaseUser) {
-                // Fetch user role and subscription from Realtime DB
-                try {
-                    const userRef = ref(database, `users/${firebaseUser.uid}`);
-                    const snapshot = await get(userRef);
-                    if (snapshot.exists()) {
-                        const data = snapshot.val();
-                        setUser({
-                            id: firebaseUser.uid,
-                            email: firebaseUser.email,
-                            name: data.name || firebaseUser.displayName,
-                            role: data.role || "user",
-                            subscriptionStatus: data.subscriptionStatus || "basic"
-                        });
-                    } else {
-                        // Fallback purely on Auth (shouldn't happen for reg users)
-                        setUser({
-                            id: firebaseUser.uid,
-                            email: firebaseUser.email,
-                            name: firebaseUser.displayName,
-                            role: "user",
-                            subscriptionStatus: "basic"
-                        });
-                    }
-                } catch (error) {
-                    console.error("Error fetching user data:", error);
-                    // Fallback to basic auth user
+        // Check active session
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            fetchUserProfile(session);
+        });
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            fetchUserProfile(session);
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
+
+    const fetchUserProfile = async (session: Session | null) => {
+        if (session?.user) {
+            try {
+                const { data, error } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .single();
+
+                if (error || !data) {
+                    // Fallback or handle missing profile
+                    // Note: You might want to create a profile on the fly if it doesn't exist,
+                    // or rely on a trigger to create it on signup.
+                    // For now, we will use metadata or defaults.
+                    console.warn("User profile missing, using defaults", error);
                     setUser({
-                        id: firebaseUser.uid,
-                        email: firebaseUser.email,
-                        name: firebaseUser.displayName || "User",
+                        id: session.user.id,
+                        email: session.user.email ?? null,
+                        name: session.user.user_metadata?.full_name || "User",
                         role: "user",
                         subscriptionStatus: "basic"
                     });
+                } else {
+                    setUser({
+                        id: session.user.id,
+                        email: session.user.email ?? null,
+                        name: data.name || session.user.user_metadata?.full_name || "User",
+                        role: data.role || "user",
+                        subscriptionStatus: data.subscription_status || "basic" // Mapping 'subscription_status' from DB convention
+                    });
                 }
-            } else {
-                setUser(null);
+            } catch (error) {
+                console.error("Error fetching user data:", error);
+                setUser({
+                    id: session.user.id,
+                    email: session.user.email ?? null,
+                    name: "User",
+                    role: "user",
+                    subscriptionStatus: "basic"
+                });
             }
-            setLoading(false);
-        });
-
-        return () => unsubscribe();
-    }, []);
+        } else {
+            setUser(null);
+        }
+        setLoading(false);
+    };
 
     const logout = async () => {
-        await signOut(auth);
+        await supabase.auth.signOut();
         setUser(null);
     };
 

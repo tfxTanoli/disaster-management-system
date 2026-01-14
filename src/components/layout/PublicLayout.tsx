@@ -21,6 +21,7 @@ export function PublicLayout() {
                     {/* Desktop Nav */}
                     <nav className="hidden md:flex items-center space-x-6">
                         <Link to="/" className="text-sm font-medium text-slate-600 hover:text-red-600 transition-colors">Home</Link>
+                        <Link to="/news" className="text-sm font-medium text-slate-600 hover:text-red-600 transition-colors">News Feed</Link>
                         <Link to="/alerts" className="text-sm font-medium text-slate-600 hover:text-red-600 transition-colors">Alerts</Link>
                         <Link to="/guidelines" className="text-sm font-medium text-slate-600 hover:text-red-600 transition-colors">Guidelines</Link>
                         <Link to="/about" className="text-sm font-medium text-slate-600 hover:text-red-600 transition-colors">About</Link>
@@ -72,6 +73,7 @@ export function PublicLayout() {
                         <div className="md:hidden border-b border-slate-200 bg-white">
                             <div className="container mx-auto px-4 py-4 flex flex-col space-y-4">
                                 <Link to="/" onClick={() => setIsMenuOpen(false)} className="text-sm font-medium text-slate-600 hover:text-red-600">Home</Link>
+                                <Link to="/news" onClick={() => setIsMenuOpen(false)} className="text-sm font-medium text-slate-600 hover:text-red-600">News Feed</Link>
                                 <Link to="/alerts" onClick={() => setIsMenuOpen(false)} className="text-sm font-medium text-slate-600 hover:text-red-600">Alerts</Link>
                                 <Link to="/guidelines" onClick={() => setIsMenuOpen(false)} className="text-sm font-medium text-slate-600 hover:text-red-600">Guidelines</Link>
                                 <Link to="/about" onClick={() => setIsMenuOpen(false)} className="text-sm font-medium text-slate-600 hover:text-red-600">About</Link>

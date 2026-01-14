@@ -1,7 +1,10 @@
-import requests
+
+import pandas as pd
+import numpy as np
 import sys
 import os
-import math
+import joblib
+import requests
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -23,62 +26,52 @@ app = FastAPI(title="GBDMS Risk Engine", version="1.0")
 # --- Initialize Firebase Admin SDK ---
 try:
     if not firebase_admin._apps:
-        # Check if all required env vars exist
-        required_vars = [
-            "FIREBASE_ADMIN_PROJECT_ID",
-            "FIREBASE_ADMIN_PRIVATE_KEY_ID",
-            "FIREBASE_ADMIN_PRIVATE_KEY",
-            "FIREBASE_ADMIN_CLIENT_EMAIL",
-            "FIREBASE_ADMIN_CLIENT_ID",
-            "FIREBASE_ADMIN_CLIENT_CERT_URL",
-            "VITE_FIREBASE_DATABASE_URL"
-        ]
+        cred = credentials.Certificate({
+            "type": "service_account",
+            "project_id": os.getenv("FIREBASE_ADMIN_PROJECT_ID"),
+            "private_key_id": os.getenv("FIREBASE_ADMIN_PRIVATE_KEY_ID"),
+            "private_key": os.getenv("FIREBASE_ADMIN_PRIVATE_KEY").replace('\\n', '\n'),
+            "client_email": os.getenv("FIREBASE_ADMIN_CLIENT_EMAIL"),
+            "client_id": os.getenv("FIREBASE_ADMIN_CLIENT_ID"),
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+            "client_x509_cert_url": os.getenv("FIREBASE_ADMIN_CLIENT_CERT_URL")
+        })
         
-        missing_vars = [var for var in required_vars if not os.getenv(var)]
+        # Initialize with Database URL
+        db_url = os.getenv("VITE_FIREBASE_DATABASE_URL") 
+        # Note: VITE_ variables might not be loaded by python-dotenv if in .env, wait. 
+        # python-dotenv loads everything in .env so it's fine.
         
-        if missing_vars:
-            print(f"Missing environment variables: {missing_vars}")
-            print("Firebase Admin SDK will not be initialized")
-        else:
-            cred = credentials.Certificate({
-                "type": "service_account",
-                "project_id": os.getenv("FIREBASE_ADMIN_PROJECT_ID"),
-                "private_key_id": os.getenv("FIREBASE_ADMIN_PRIVATE_KEY_ID"),
-                "private_key": os.getenv("FIREBASE_ADMIN_PRIVATE_KEY").replace('\\n', '\n'),
-                "client_email": os.getenv("FIREBASE_ADMIN_CLIENT_EMAIL"),
-                "client_id": os.getenv("FIREBASE_ADMIN_CLIENT_ID"),
-                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                "token_uri": "https://oauth2.googleapis.com/token",
-                "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-                "client_x509_cert_url": os.getenv("FIREBASE_ADMIN_CLIENT_CERT_URL")
-            })
-            
-            db_url = os.getenv("VITE_FIREBASE_DATABASE_URL")
-            firebase_admin.initialize_app(cred, {'databaseURL': db_url})
-            print("Firebase Admin SDK Initialized Successfully")
+        firebase_admin.initialize_app(cred, {
+            'databaseURL': db_url 
+        })
+        print("Firebase Admin SDK Initialized Successfully")
 except Exception as e:
     print(f"Failed to initialize Firebase Admin SDK: {e}")
 
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://disaster-management-system-teal.vercel.app",  # Production frontend
-        "http://localhost:5173",  # Local development
-        "http://localhost:5174",  # Alternative local port
-    ],
+    allow_origins=["*"], # In production, replace with frontend URL
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# --- Load Model (Pure Python) ---
+# --- Load Model ---
+MODEL_PATH = os.path.join(os.path.dirname(__file__), '../Model/output/model.joblib')
 try:
-    from inference import InferenceEngine
-    engine = InferenceEngine()
+    if os.path.exists(MODEL_PATH):
+        model_artifacts = joblib.load(MODEL_PATH)
+        print(f"Model loaded from {MODEL_PATH}")
+    else:
+        print(f"Warning: Model not found at {MODEL_PATH}. Using mock predictions.")
+        model_artifacts = None
 except Exception as e:
-    print(f"Model loading failed: {e}")
-    engine = type('obj', (object,), {'loaded': False})()
+    print(f"Error loading model: {e}")
+    model_artifacts = None
 
 # --- Schemas ---
 class Location(BaseModel):
@@ -91,7 +84,6 @@ class PredictionRequest(BaseModel):
     rainfall: Optional[float] = 0.0
     river_level: Optional[float] = 0.0
     soil_moisture: Optional[float] = 0.0
-    district: Optional[str] = None # Added field locally to be safe
 
 class RouteRequest(BaseModel):
     start: Location
@@ -118,53 +110,126 @@ SAFETY_RECOMMENDATIONS = {
 }
 
 def get_risk_level(prob):
-    if prob > 0.7: return "Critical"
-    if prob > 0.4: return "Moderate"
+    if prob > 0.8: return "Critical"
+    if prob > 0.5: return "Moderate"
     return "Low"
 
 # --- Endpoints ---
 
 @app.get("/")
 def health_check():
-    return {"status": "active", "model_loaded": engine.loaded}
+    return {"status": "active", "model_loaded": model_artifacts is not None}
 
 @app.post("/predict")
 def predict_risk(req: PredictionRequest):
     """
     Predict disaster risk based on location and environmental data.
     """
-    if engine.loaded:
+    if model_artifacts:
         try:
-            inputs = {
-                'rainfall': req.rainfall,
-                'river_level': req.river_level,
-                'District': getattr(req, 'district', 'Unknown') # Handle if Pydantic model doesn't have district field explicitly sometimes
+            # Prepare input for model
+            # Note: The model expects specific features. 
+            # We map basic inputs to model features, filling missing ones with defaults.
+            
+            features = model_artifacts['features']
+            input_data = {
+                'Latitude': req.latitude,
+                'Longitude': req.longitude,
+                'District': req.district if req.district else "Unknown", # Explicit mapping
+                # Map other inputs if trained on them, else 0
+                'Attribute 1': 'Unknown', 
+                'Attribute 2': 'Unknown'
             }
             
-            result = engine.predict_risk(req.latitude, req.longitude, inputs)
+            # Simple DataFrame creation
+            input_df = pd.DataFrame([input_data])
             
-            if result:
-                pred_class = result['class']
-                conf = result['confidence']
-                risk = get_risk_level(conf)
+            # Add missing columns with smart mapping
+            for col in features:
+                if col not in input_df.columns:
+                    input_df[col] = 0
+
+            # HEURISTIC INJECTION: Force known High Risk triggers
+            # The model is sensitive to specific strings like "Heavy Rainfall"
+            if 'encoders' in model_artifacts:
+                encs = model_artifacts['encoders']
                 
-                return {
-                    "prediction": pred_class,
-                    "risk_level": risk,
-                    "confidence": round(conf * 100, 1),
-                    "visual_color": "#ef4444" if risk == "Critical" else "#f97316" if risk == "Moderate" else "#10b981", 
-                    "recommendations": SAFETY_RECOMMENDATIONS.get(pred_class, ["Stay alert."])
-                }
+                def set_trigger(col, val):
+                    if col in features and col in encs:
+                        if val in encs[col].classes_:
+                            input_df[col] = val
+                
+                # If high rainfall, inject "Heavy Rainfall" trigger into potential columns
+                if req.rainfall and req.rainfall > 40:
+                    set_trigger('Attribute 2', 'Heavy Rainfall') # Landslide Trigger
+                    set_trigger('Attribute 3', 'Heavy Rainfall')
+                    set_trigger('Attribute 4', 'Heavy Rainfall') # GLOF Trigger
+                
+                # If high river level, inject "Glacier Melting" (common GLOF/Flood trigger)
+                if req.river_level and req.river_level > 15:
+                    set_trigger('Attribute 2', 'Glacier Melting')
+                    set_trigger('Attribute 3', 'Glacier Melting')
+                    set_trigger('Attribute 4', 'Glacier Melting')
+                    # Also try to hint Flood type if possible
+                    set_trigger('Attribute 1', 'River Flood')
+
+            
+            # Filter
+            input_df = input_df[features]
+            
+            # Encode/Scale
+            for col, encoder in model_artifacts['encoders'].items():
+                if col in input_df.columns:
+                    # Handle District and other categorical columns
+                    input_df[col] = input_df[col].astype(str)
+                    
+                    # Safe transform: if value not in encoder (e.g. unknown district), map to first class or handled value
+                    # For District, we iterate and check
+                    known_classes = set(encoder.classes_)
+                    input_df[col] = input_df[col].apply(lambda x: x if x in known_classes else encoder.classes_[0])
+                    
+                    try:
+                        input_df[col] = encoder.transform(input_df[col])
+                    except:
+                        input_df[col] = 0
+                        
+            X_scaled = model_artifacts['scaler'].transform(input_df)
+            
+            # Predict
+            model = model_artifacts['model']
+            print(f"DEBUG: Predicting for District: {req.district}")
+            print(f"DEBUG: Input Vector shape: {X_scaled.shape}")
+            
+            probs = model.predict_proba(X_scaled)[0]
+            max_idx = np.argmax(probs)
+            pred_class = model.classes_[max_idx]
+            conf = float(probs[max_idx])
+            
+            print(f"DEBUG: Prediction: {pred_class}, Confidence: {conf}")
+
+            risk = get_risk_level(conf)
+            recs = SAFETY_RECOMMENDATIONS.get(pred_class, ["Stay alert."])
+            
+            return {
+                "prediction": pred_class,
+                "risk_level": risk,
+                "confidence": round(conf * 100, 1),
+                "visual_color": "#ef4444" if risk == "Critical" else "#f97316" if risk == "Moderate" else "#10b981", 
+                "recommendations": recs
+            }
+            
         except Exception as e:
             print(f"Prediction Error: {e}")
+            import traceback
+            traceback.print_exc()
+            # Fallback to mock if model fails
             pass
 
     # Mock Fallback logic if model missing or failed
     # Simulate heuristics based on coordinates and input variation
     # Add randomness based on lat/lng to make it feel "local" but consistent for same point
-    import random
     random_seed = int((req.latitude + req.longitude) * 100)
-    random.seed(random_seed)
+    np.random.seed(random_seed)
     
     # Base risk factor on environmental inputs if provided, else random
     risk_factor = 0
@@ -187,11 +252,20 @@ def predict_risk(req: PredictionRequest):
     confidence = 70 + (risk_factor * 20) # 70-90% range
     if confidence > 95: confidence = 95
     
+    # Calculate Risk Level based on Confidence for consistency
+    # User Request: > 85% should be Critical
+    if confidence > 85:
+        risk_level = "Critical"
+    elif confidence > 60:
+        risk_level = "Moderate"
+    else:
+        risk_level = "Low"
+
     return {
         "prediction": prediction,
-        "risk_level": "Critical" if risk_factor > 0.8 else "Moderate" if risk_factor > 0.4 else "Low",
+        "risk_level": risk_level,
         "confidence": round(confidence, 1),
-        "visual_color": "#ef4444" if risk_factor > 0.8 else "#f97316" if risk_factor > 0.4 else "#10b981",
+        "visual_color": "#ef4444" if risk_level == "Critical" else "#f97316" if risk_level == "Moderate" else "#10b981",
         "recommendations": SAFETY_RECOMMENDATIONS.get(prediction, SAFETY_RECOMMENDATIONS['Normal'])
     }
 
@@ -247,7 +321,7 @@ def get_evacuation_route(req: RouteRequest):
     # Find nearest safe zone
     for zone in safe_zones:
         # Euclidean distance approximation for sorting (sufficient for local scale)
-        dist = math.sqrt((zone['lat'] - start_lat)**2 + (zone['lng'] - start_lng)**2)
+        dist = np.sqrt((zone['lat'] - start_lat)**2 + (zone['lng'] - start_lng)**2)
         if dist < min_dist:
             min_dist = dist
             closest_zone = zone
@@ -267,9 +341,8 @@ def get_evacuation_route(req: RouteRequest):
         
         # Add slight noise to simulate road curvature
         if 0 < i < steps:
-            import random
-            lat += (random.random() - 0.5) * 0.005
-            lng += (random.random() - 0.5) * 0.005
+            lat += (np.random.random() - 0.5) * 0.005 # Reduced noise for cleaner line
+            lng += (np.random.random() - 0.5) * 0.005
             
         path.append([lat, lng])
         
@@ -386,9 +459,6 @@ def delete_user(uid: str):
         return {"message": "User deleted successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete user: {str(e)}")
-
-# Vercel serverless function handler
-handler = app
 
 if __name__ == "__main__":
     import uvicorn

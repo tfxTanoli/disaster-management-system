@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { supabase } from "@/lib/supabase";
 import { useNavigate, Link } from "react-router-dom";
 import { Loader2, ShieldAlert, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,11 +20,16 @@ export function Login() {
         setLoading(true);
 
         try {
-            await signInWithEmailAndPassword(auth, email, password);
+            const { error } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+            });
+
+            if (error) throw error;
             navigate("/"); // Redirect to home, AuthContext will update state
         } catch (err: any) {
             console.error("Login error:", err);
-            setError("Invalid email or password. Please try again.");
+            setError(err.message || "Invalid email or password. Please try again.");
         } finally {
             setLoading(false);
         }

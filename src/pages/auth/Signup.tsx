@@ -5,8 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ShieldAlert, ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { supabase } from "@/lib/supabase";
 
 export function Signup() {
     const [formData, setFormData] = useState({
@@ -28,31 +27,28 @@ export function Signup() {
 
         try {
             // 1. Create Auth User
-            const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
-            const user = userCredential.user;
-
-            // 2. Update Profile Display Name
+            // Supabase allows passing metadata in signUp which is cleaner
             const fullName = `${formData.firstName} ${formData.lastName}`;
-            await updateProfile(user, {
-                displayName: fullName
-            });
+            const role = "user"; // Default role is always user. Admin must promote manually.
 
-            // 3. Determine Role
-            const role = formData.email.endsWith("@gbdms.gov.pk") ? "admin" : "user";
-
-            // 4. Create User Entry in Realtime Database
-            const { ref, set } = await import("firebase/database");
-            const { database } = await import("@/lib/firebase");
-            const userRef = ref(database, `users/${user.uid}`);
-
-            await set(userRef, {
-                name: fullName,
+            const { data: { user }, error: signUpError } = await supabase.auth.signUp({
                 email: formData.email,
-                district: formData.district,
-                role: role,
-                subscriptionStatus: "basic",
-                createdAt: new Date().toISOString()
+                password: formData.password,
+                options: {
+                    data: {
+                        full_name: fullName,
+                        role: role,
+                        district: formData.district // Passing district to metadata so Trigger can use it
+                    }
+                }
             });
+
+            if (signUpError) throw signUpError;
+            if (!user) throw new Error("Accout creation failed");
+
+            // 4. Create User Entry in Public Table 'users'
+            // We now handle this via a Supabase Database Trigger (security definer)
+            // This prevents RLS violations and ensures atomicity.
 
             // 5. Show Success & Redirect
             setSuccess(true);
@@ -62,11 +58,8 @@ export function Signup() {
 
         } catch (err: any) {
             console.error("Signup Error:", err);
-            if (err.code === 'auth/email-already-in-use') {
-                setError("This email is already registered. Please login instead.");
-            } else {
-                setError(err.message || "Failed to create account.");
-            }
+            // Supabase returns message in 'message' or 'error_description'
+            setError(err.message || "Failed to create account.");
         } finally {
             setLoading(false);
         }

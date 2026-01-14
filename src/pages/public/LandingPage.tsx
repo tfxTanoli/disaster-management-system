@@ -7,7 +7,7 @@ export function LandingPage() {
         <div className="flex flex-col min-h-screen bg-slate-50">
             {/* Hero Section */}
             {/* Hero Section */}
-            <section className="relative w-full py-24 md:py-32 lg:py-40 bg-slate-900 text-white overflow-hidden">
+            <section className="relative w-full py-16 md:py-24 lg:py-32 bg-slate-900 text-white overflow-hidden">
                 <div
                     className="absolute inset-0 bg-cover bg-center opacity-20"
                     style={{ backgroundImage: "url('https://images.unsplash.com/photo-1454789476662-53eb23ba5907?q=80&w=2552&auto=format&fit=crop')" }}
@@ -17,7 +17,7 @@ export function LandingPage() {
                         <Activity className="mr-2 h-4 w-4 animate-pulse" />
                         System Operational
                     </div>
-                    <h1 className="text-4xl font-extrabold tracking-tighter sm:text-5xl md:text-6xl lg:text-7xl max-w-4xl">
+                    <h1 className="text-3xl font-extrabold tracking-tighter sm:text-5xl md:text-6xl lg:text-7xl max-w-4xl">
                         Gilgit-Baltistan <br className="hidden sm:inline" />
                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-400">
                             Disaster Management System
@@ -44,7 +44,7 @@ export function LandingPage() {
             {/* Quick Actions Grid */}
             <section className="container mx-auto px-4 py-16 -mt-16 relative z-20">
                 <div className="grid gap-6 md:grid-cols-3">
-                    <div className="group relative overflow-hidden rounded-xl bg-white p-8 shadow-xl transition-all hover:shadow-2xl hover:-translate-y-1 border-t-4 border-blue-500">
+                    <div className="group relative overflow-hidden rounded-xl bg-white p-6 md:p-8 shadow-xl transition-all hover:shadow-2xl hover:-translate-y-1 border-t-4 border-blue-500">
                         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-blue-600 mb-6 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300">
                             <BookOpen className="h-7 w-7" />
                         </div>
@@ -57,7 +57,7 @@ export function LandingPage() {
                         </Link>
                     </div>
 
-                    <div className="group relative overflow-hidden rounded-xl bg-white p-8 shadow-xl transition-all hover:shadow-2xl hover:-translate-y-1 border-t-4 border-red-500">
+                    <div className="group relative overflow-hidden rounded-xl bg-white p-6 md:p-8 shadow-xl transition-all hover:shadow-2xl hover:-translate-y-1 border-t-4 border-red-500">
                         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-600 mb-6 group-hover:bg-red-600 group-hover:text-white transition-colors duration-300">
                             <Phone className="h-7 w-7" />
                         </div>
@@ -70,7 +70,7 @@ export function LandingPage() {
                         </Link>
                     </div>
 
-                    <div className="group relative overflow-hidden rounded-xl bg-white p-8 shadow-xl transition-all hover:shadow-2xl hover:-translate-y-1 border-t-4 border-orange-500">
+                    <div className="group relative overflow-hidden rounded-xl bg-white p-6 md:p-8 shadow-xl transition-all hover:shadow-2xl hover:-translate-y-1 border-t-4 border-orange-500">
                         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-orange-50 text-orange-600 mb-6 group-hover:bg-orange-600 group-hover:text-white transition-colors duration-300">
                             <ShieldAlert className="h-7 w-7" />
                         </div>
@@ -86,7 +86,7 @@ export function LandingPage() {
             </section>
 
             {/* Mission & Impact Section (New Content) */}
-            <section className="py-24 bg-white">
+            <section className="py-16 md:py-24 bg-white">
                 <div className="container mx-auto px-4">
                     <div className="flex flex-col md:flex-row items-center gap-16">
                         <div className="md:w-1/2 space-y-6">

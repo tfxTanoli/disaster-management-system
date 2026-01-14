@@ -3,11 +3,11 @@ import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 const sidebarItems = [
-    { icon: Home, label: "Dashboard", href: "/" },
-    { icon: Bell, label: "Alerts", href: "/alerts" },
-    { icon: MapPin, label: "Live Map", href: "/map" },
-    { icon: Box, label: "Resources", href: "/resources" },
-    { icon: Settings, label: "Settings", href: "/settings" },
+    { icon: Home, label: "Dashboard", href: "/admin/dashboard" }, // Fixed root href
+    { icon: Bell, label: "Content & Alerts", href: "/admin/content" },
+    { icon: MapPin, label: "Live Map", href: "/admin/live-map" }, // Fixed root href
+    { icon: Box, label: "Inventory", href: "/admin/inventory" }, // Fixed root href
+    { icon: Settings, label: "Users", href: "/admin/users" }, // Replaced Settings with Users as per App.tsx routes
 ];
 
 export function Sidebar() {
