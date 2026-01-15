@@ -188,7 +188,7 @@ export function NewsFeed() {
                 body: postBody,
                 type: postType,
                 url: finalUrl,
-                status: 'published', // Direct publish for now
+                status: 'published',
                 author_name: user.name || 'Anonymous',
                 user_id: user.id
             });

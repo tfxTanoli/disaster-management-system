@@ -3,7 +3,7 @@ import {
     LayoutDashboard,
     Activity,
     Package,
-    Bell,
+    // Bell, 
     FileText,
     LogOut,
     ShieldAlert,
@@ -73,8 +73,8 @@ export function AdminLayout() {
                     </Link>
 
                     <Link to="/admin/content" className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${isActive('/admin/content')}`}>
-                        <Bell className="h-5 w-5 flex-shrink-0" />
-                        {isSidebarOpen && <span>Content & Alerts</span>}
+                        <FileText className="h-5 w-5 flex-shrink-0" />
+                        {isSidebarOpen && <span>Content Management</span>}
                     </Link>
 
                     <Link to="/admin/inventory" className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${isActive('/admin/inventory')}`}>

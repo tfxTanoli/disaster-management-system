@@ -35,7 +35,7 @@ interface ContentItem {
     body: string;
     type: 'blog' | 'article' | 'video';
     url?: string;
-    status: 'draft' | 'published';
+    status: 'draft' | 'published' | 'pending';
     created_at: string;
     author_name?: string;
     user_id?: string;
@@ -184,12 +184,12 @@ export function AdminContent() {
         }
     };
 
+
+
     const deleteContent = async (id: string) => {
         if (!confirm("Delete this post?")) return;
         await supabase.from('content').delete().eq('id', id);
     };
-
-
 
     const createAlert = async () => {
         if (!alertTitle || !alertMessage) return alert("Title and Message are required");
@@ -220,118 +220,176 @@ export function AdminContent() {
         await supabase.from('alerts').update({ active: !item.active }).eq('id', item.id);
     };
 
+
+    const publishedContent = contents.filter(c => c.status === 'published');
+
     return (
         <div className="space-y-6 container mx-auto p-6 max-w-5xl">
             <div className="flex flex-col gap-2">
-                <h1 className="text-3xl font-bold tracking-tight text-slate-900">Content & Alerts</h1>
-                <p className="text-slate-500">Create posts, share updates, and manage emergency alerts.</p>
+                <h1 className="text-3xl font-bold tracking-tight text-slate-900">Content Management</h1>
+                <p className="text-slate-500">Create, manage, and publish digital content and alerts.</p>
             </div>
 
             <Tabs defaultValue="posts" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 max-w-full md:max-w-[400px]">
-                    <TabsTrigger value="posts">News Feed</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-2 md:w-[400px]">
+                    <TabsTrigger value="posts">Published Content</TabsTrigger>
                     <TabsTrigger value="alerts">Alerts</TabsTrigger>
                 </TabsList>
+
+
 
                 {/* --- POSTS TAB --- */}
                 <TabsContent value="posts" className="space-y-6 mt-6">
                     {/* Social Media Style Creator */}
-                    <Card className="shadow-md border-slate-200">
-                        <CardHeader className="pb-3 border-b border-slate-100 bg-slate-50/50">
-                            <CardTitle className="text-lg font-medium text-slate-700">Create Post</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4 pt-4">
-                            <Input
-                                placeholder="Post Title (Optional)"
-                                value={postTitle}
-                                onChange={(e) => setPostTitle(e.target.value)}
-                                className="font-medium text-lg border-none hover:bg-slate-50 focus:ring-0 px-0"
-                            />
-                            <Textarea
-                                placeholder={`What's on your mind, ${user?.name || 'Admin'}?`}
-                                className="min-h-[100px] border-none text-base resize-none focus-visible:ring-0 px-0"
-                                value={postBody}
-                                onChange={(e) => setPostBody(e.target.value)}
-                            />
+                    {/* Professional CMS Editor */}
+                    <div className="grid lg:grid-cols-3 gap-8">
+                        {/* Editor Column */}
+                        <div className="lg:col-span-2 space-y-6">
+                            <Card className="shadow-sm border-slate-200">
+                                <CardHeader className="bg-slate-50 border-b border-slate-100">
+                                    <CardTitle>Content Editor</CardTitle>
+                                    <CardDescription>Write and publish blogs, articles, and video content.</CardDescription>
+                                </CardHeader>
+                                <CardContent className="p-6 space-y-6">
+                                    {/* Type Selection */}
+                                    <div className="grid grid-cols-3 gap-4">
+                                        <div
+                                            onClick={() => setPostType('blog')}
+                                            className={`cursor-pointer border rounded-lg p-4 text-center transition-all ${postType === 'blog' ? 'ring-2 ring-blue-600 bg-blue-50 border-blue-600' : 'hover:bg-slate-50 border-slate-200'}`}
+                                        >
+                                            <div className="text-2xl mb-2">📝</div>
+                                            <div className="font-semibold text-sm">Blog Post</div>
+                                        </div>
+                                        <div
+                                            onClick={() => setPostType('article')}
+                                            className={`cursor-pointer border rounded-lg p-4 text-center transition-all ${postType === 'article' ? 'ring-2 ring-purple-600 bg-purple-50 border-purple-600' : 'hover:bg-slate-50 border-slate-200'}`}
+                                        >
+                                            <div className="text-2xl mb-2">📰</div>
+                                            <div className="font-semibold text-sm">News Article</div>
+                                        </div>
+                                        <div
+                                            onClick={() => setPostType('video')}
+                                            className={`cursor-pointer border rounded-lg p-4 text-center transition-all ${postType === 'video' ? 'ring-2 ring-red-600 bg-red-50 border-red-600' : 'hover:bg-slate-50 border-slate-200'}`}
+                                        >
+                                            <div className="text-2xl mb-2">🎥</div>
+                                            <div className="font-semibold text-sm">Video</div>
+                                        </div>
+                                    </div>
 
-                            {/* File Preview */}
-                            {filePreview && (
-                                <div className="relative rounded-lg overflow-hidden border border-slate-200 bg-slate-50 mt-2">
-                                    <Button
-                                        variant="destructive"
-                                        size="icon"
-                                        className="absolute top-2 right-2 h-8 w-8 rounded-full shadow-sm z-10"
-                                        onClick={clearFile}
-                                    >
-                                        <X className="h-4 w-4" />
-                                    </Button>
-                                    {file?.type.startsWith('video/') ? (
-                                        <video src={filePreview} controls className="w-full max-h-[300px] object-contain bg-black" />
-                                    ) : (
-                                        <img src={filePreview} alt="Preview" className="w-full max-h-[300px] object-contain bg-black" />
-                                    )}
-                                </div>
-                            )}
+                                    <div className="space-y-3">
+                                        <label className="text-sm font-medium text-slate-700">Title <span className="text-red-500">*</span></label>
+                                        <Input
+                                            placeholder="Enter a descriptive title..."
+                                            value={postTitle}
+                                            onChange={(e) => setPostTitle(e.target.value)}
+                                            className="text-lg"
+                                        />
+                                    </div>
 
-                        </CardContent>
-                        <CardFooter className="flex flex-col sm:flex-row justify-between border-t border-slate-100 pt-3 gap-3">
-                            <div className="flex gap-2">
-                                <div className="relative">
-                                    <input
-                                        type="file"
-                                        id="file-upload"
-                                        className="hidden"
-                                        accept="image/*,video/*"
-                                        onChange={handleFileChange}
-                                    />
-                                    <label htmlFor="file-upload">
-                                        <Button variant="ghost" size="sm" className="text-slate-600 gap-2 cursor-pointer" type="button" asChild>
-                                            <span><ImageIcon className="h-5 w-5 text-green-600" /> Photo/Video</span>
+                                    <div className="space-y-3">
+                                        <label className="text-sm font-medium text-slate-700">
+                                            {postType === 'video' ? 'Video Description' : 'Body Content'} <span className="text-red-500">*</span>
+                                        </label>
+                                        <Textarea
+                                            placeholder="Write your content here..."
+                                            className="min-h-[300px] text-base leading-relaxed"
+                                            value={postBody}
+                                            onChange={(e) => setPostBody(e.target.value)}
+                                        />
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+
+                        {/* Sidebar Column */}
+                        <div className="space-y-6">
+                            <Card className="shadow-sm border-slate-200">
+                                <CardHeader className="bg-slate-50 border-b border-slate-100 py-4">
+                                    <CardTitle className="text-base">Publishing</CardTitle>
+                                </CardHeader>
+                                <CardContent className="p-4 space-y-4">
+                                    <div className="space-y-3">
+                                        <label className="text-sm font-medium text-slate-700">Featured Media</label>
+
+                                        {!filePreview ? (
+                                            <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:bg-slate-50 transition-colors relative">
+                                                <input
+                                                    type="file"
+                                                    id="file-upload"
+                                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                                    accept={postType === 'video' ? "video/*" : "image/*"}
+                                                    onChange={handleFileChange}
+                                                />
+                                                <ImageIcon className="h-8 w-8 mx-auto text-slate-400 mb-2" />
+                                                <span className="text-sm text-slate-500 block">
+                                                    Click to upload {postType === 'video' ? 'Video' : 'Cover Image'}
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            <div className="relative rounded-lg overflow-hidden border border-slate-200 bg-slate-100">
+                                                <Button
+                                                    variant="destructive"
+                                                    size="icon"
+                                                    className="absolute top-2 right-2 h-6 w-6 rounded-full z-10"
+                                                    onClick={clearFile}
+                                                >
+                                                    <X className="h-3 w-3" />
+                                                </Button>
+                                                {postType === 'video' || file?.type.startsWith('video/') ? (
+                                                    <video src={filePreview} controls className="w-full h-auto" />
+                                                ) : (
+                                                    <img src={filePreview} alt="Preview" className="w-full h-auto" />
+                                                )}
+                                            </div>
+                                        )}
+
+                                        <div className="relative">
+                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                <span className="text-slate-400 text-xs">URL</span>
+                                            </div>
+                                            <Input
+                                                type="url"
+                                                placeholder="Or paste external URL"
+                                                value={postUrl}
+                                                onChange={(e) => setPostUrl(e.target.value)}
+                                                className="pl-10 text-xs"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="pt-4 border-t border-slate-100">
+                                        <Button onClick={createContent} className="w-full bg-blue-600 hover:bg-blue-700 h-10 text-base" disabled={loading}>
+                                            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Publish Content"}
                                         </Button>
-                                    </label>
-                                </div>
-                                <Select value={postType} onValueChange={setPostType}>
-                                    <SelectTrigger className="w-[130px] border-none bg-transparent shadow-none hover:bg-slate-50 h-9">
-                                        <SelectValue placeholder="Type" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="blog">Update</SelectItem>
-                                        <SelectItem value="article">Article</SelectItem>
-                                        <SelectItem value="video">Video</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <Button onClick={createContent} className="w-full sm:w-auto px-8 bg-blue-600 hover:bg-blue-700">
-                                Post
-                            </Button>
-                        </CardFooter>
-                    </Card>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    </div>
 
                     {/* Posts List */}
                     <div className="grid gap-6">
                         {loading ? (
                             <div className="text-center py-10"><Loader2 className="animate-spin h-8 w-8 mx-auto text-slate-400" /></div>
-                        ) : contents.length === 0 ? (
-                            <div className="text-center py-10 text-slate-500">No posts yet.</div>
+                        ) : publishedContent.length === 0 ? (
+                            <div className="text-center py-10 text-slate-500">No published posts yet.</div>
                         ) : (
-                            contents.map((item) => (
+                            publishedContent.map((item) => (
                                 <Card key={item.id} className="overflow-hidden">
                                     <CardHeader className="pb-3 flex flex-row items-center gap-3 space-y-0">
                                         <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center font-bold text-slate-600">
-                                            {(item.author_name?.[0] || item.title[0] || 'A').toUpperCase()}
+                                            {(item.author_name?.[0] || item.title?.[0] || 'A').toUpperCase()}
                                         </div>
                                         <div className="flex-1">
                                             <CardTitle className="text-base font-semibold">
                                                 {item.author_name || 'Admin'}
-                                                <span className="font-normal text-slate-500"> uploaded a {item.type}</span>
+                                                <span className="font-normal text-slate-500"> posted a {item.type}</span>
                                             </CardTitle>
                                             <CardDescription className="text-xs">
                                                 {new Date(item.created_at).toLocaleString()}
                                             </CardDescription>
                                         </div>
-                                        <Badge variant={item.status === 'published' ? 'default' : 'secondary'}>
-                                            {item.status}
-                                        </Badge>
+                                        <Badge variant="default">Published</Badge>
                                     </CardHeader>
                                     <CardContent className="space-y-4">
                                         {item.title && item.title !== "Untitled Post" && (

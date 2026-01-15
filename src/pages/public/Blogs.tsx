@@ -1,40 +1,32 @@
-import { Calendar, User, ArrowRight, BookOpen } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Calendar, User, BookOpen, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
+import { supabase } from "@/lib/supabase";
 
 export function Blogs() {
-    const articles = [
-        {
-            id: 1,
-            title: "Preparing for Monsoon Season: A Comprehensive Guide",
-            excerpt: "As the monsoon season approaches, learn the essential steps to secure your home and family against potential flooding and landslides.",
-            author: "Dr. Sarah Khan",
-            date: "May 15, 2026",
-            category: "Preparedness",
-            image: "https://images.unsplash.com/photo-1547683905-f686c993aee5?q=80&w=2000&auto=format&fit=crop",
-            readTime: "5 min read"
-        },
-        {
-            id: 2,
-            title: "Understanding Seismic Activity in Northern Areas",
-            excerpt: "An in-depth look at the geological factors that make Gilgit-Baltistan seismically active and what recent data tells us about future risks.",
-            author: "Geological Survey Team",
-            date: "April 28, 2026",
-            category: "Research",
-            image: "https://images.unsplash.com/photo-1517089456903-516d00df7025?q=80&w=2000&auto=format&fit=crop",
-            readTime: "8 min read"
-        },
-        {
-            id: 3,
-            title: "Community Response Teams: The First Line of Defense",
-            excerpt: "Highlighting the heroic efforts of local volunteers who act as the first responders during remote emergencies.",
-            author: "Ali Ahmed",
-            date: "June 02, 2026",
-            category: "Community",
-            image: "https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?q=80&w=2000&auto=format&fit=crop",
-            readTime: "6 min read"
-        }
-    ];
+    const [articles, setArticles] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchArticles = async () => {
+            try {
+                const { data } = await supabase
+                    .from('content')
+                    .select('*')
+                    .in('type', ['blog', 'article'])
+                    .eq('status', 'published')
+                    .order('created_at', { ascending: false });
+
+                if (data) setArticles(data);
+            } catch (error) {
+                console.error("Error fetching blogs:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchArticles();
+    }, []);
 
     return (
         <div className="min-h-screen bg-slate-50 py-12">
@@ -52,48 +44,60 @@ export function Blogs() {
                     </p>
                 </div>
 
-                <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-                    {articles.map((article) => (
-                        <div key={article.id} className="group bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-slate-100 flex flex-col">
-                            <div className="relative h-48 overflow-hidden">
-                                <div className="absolute top-4 left-4 z-10">
-                                    <span className="px-3 py-1 bg-white/90 backdrop-blur text-xs font-bold text-slate-900 rounded-full uppercase tracking-wider">
-                                        {article.category}
-                                    </span>
-                                </div>
-                                <img
-                                    src={article.image}
-                                    alt={article.title}
-                                    className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
-                                />
-                            </div>
-                            <div className="p-6 flex-1 flex flex-col">
-                                <div className="flex items-center text-xs text-slate-500 mb-4 space-x-4">
-                                    <div className="flex items-center">
-                                        <Calendar className="h-3 w-3 mr-1" />
-                                        {article.date}
+                {loading ? (
+                    <div className="flex justify-center py-20"><Loader2 className="h-10 w-10 animate-spin text-blue-600" /></div>
+                ) : (
+                    <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+                        {articles.map((article) => (
+                            <div key={article.id} className="group bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-slate-100 flex flex-col">
+                                <div className="relative h-48 overflow-hidden bg-slate-200">
+                                    {article.url ? (
+                                        <img
+                                            src={article.url}
+                                            alt={article.title}
+                                            className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-slate-400">
+                                            <BookOpen className="h-12 w-12 opacity-50" />
+                                        </div>
+                                    )}
+                                    <div className="absolute top-4 left-4 z-10">
+                                        <span className="px-3 py-1 bg-white/90 backdrop-blur text-xs font-bold text-slate-900 rounded-full uppercase tracking-wider">
+                                            {article.type}
+                                        </span>
                                     </div>
-                                    <div>{article.readTime}</div>
                                 </div>
-                                <h3 className="text-xl font-bold text-slate-900 mb-2 leading-snug group-hover:text-blue-600 transition-colors">
-                                    {article.title}
-                                </h3>
-                                <p className="text-slate-600 text-sm mb-6 flex-1">
-                                    {article.excerpt}
-                                </p>
-                                <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-                                    <div className="flex items-center text-sm font-medium text-slate-900">
-                                        <User className="h-4 w-4 mr-2 text-slate-400" />
-                                        {article.author}
+                                <div className="p-6 flex-1 flex flex-col">
+                                    <div className="flex items-center text-xs text-slate-500 mb-4 space-x-4">
+                                        <div className="flex items-center">
+                                            <Calendar className="h-3 w-3 mr-1" />
+                                            {new Date(article.created_at).toLocaleDateString()}
+                                        </div>
                                     </div>
-                                    <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 p-0 h-auto">
-                                        Read More <ArrowRight className="ml-1 h-3 w-3" />
-                                    </Button>
+                                    <h3 className="text-xl font-bold text-slate-900 mb-2 leading-snug group-hover:text-blue-600 transition-colors line-clamp-2">
+                                        {article.title}
+                                    </h3>
+                                    <p className="text-slate-600 text-sm mb-6 flex-1 line-clamp-3">
+                                        {article.body}
+                                    </p>
+                                    <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                                        <div className="flex items-center text-sm font-medium text-slate-900">
+                                            <User className="h-4 w-4 mr-2 text-slate-400" />
+                                            {article.author_name || 'Admin'}
+                                        </div>
+                                        {/* Optional Read More functionality */}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
-                </div>
+                        ))}
+                        {articles.length === 0 && (
+                            <div className="col-span-full text-center py-20 text-slate-500">
+                                No articles published yet.
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 <div className="mt-16 text-center">
                     <p className="text-slate-500 mb-6">Want to receive these updates strictly to your inbox?</p>
