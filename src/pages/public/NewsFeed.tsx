@@ -7,6 +7,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Loader2, AlertTriangle, FileText, Image as ImageIcon, X, Trash2, Maximize2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { toast } from 'sonner';
 
 interface FeedItem {
     id: string;
@@ -161,14 +162,14 @@ export function NewsFeed() {
 
             return data.publicUrl;
         } catch (error: any) {
-            alert('Error uploading file: ' + error.message);
+            toast.error('Error uploading file', { description: error.message });
             return null;
         }
     };
 
     const createPost = async () => {
-        if (!user) return alert("Please login to post.");
-        if (!postBody && !file) return alert("Please add some text or media.");
+        if (!user) { toast.warning('Please login to post'); return; }
+        if (!postBody && !file) { toast.warning('Please add some text or media'); return; }
 
         setIsPosting(true);
         let finalUrl = '';
@@ -200,10 +201,10 @@ export function NewsFeed() {
             setPostBody('');
             clearFile();
             fetchFeed();
-            alert("Posted successfully!");
+            toast.success('Posted successfully!');
         } catch (e: any) {
             console.error(e);
-            alert("Failed to post: " + e.message);
+            toast.error('Failed to post', { description: e.message });
         } finally {
             setIsPosting(false);
         }
@@ -222,9 +223,9 @@ export function NewsFeed() {
 
             // Remove from local state immediately for UI responsiveness
             setFeed(feed.filter(item => item.id !== id));
-            alert("Deleted successfully.");
+            toast.success('Deleted successfully');
         } catch (error: any) {
-            alert("Error deleting: " + error.message);
+            toast.error('Error deleting', { description: error.message });
         }
     };
 

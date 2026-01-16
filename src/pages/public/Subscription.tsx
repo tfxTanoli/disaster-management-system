@@ -54,10 +54,12 @@ export function Subscription() {
                         <h3 className="text-xl font-bold text-white">Pro Shield</h3>
                         <p className="text-slate-400 text-sm mt-2">Advanced tools for proactive safety.</p>
                         <div className="my-6">
-                            <span className="text-4xl font-extrabold text-white">PKR 1500</span>
-                            <span className="text-slate-500 ml-2">/year</span>
+                            <span className="text-4xl font-extrabold text-white">PKR 1000</span>
+                            <span className="text-slate-500 ml-2">/month</span>
                         </div>
-                        <Button className="w-full mb-8 bg-red-600 hover:bg-red-700 text-white font-bold">Subscribe Now</Button>
+                        <Link to="/payment">
+                            <Button className="w-full mb-8 bg-red-600 hover:bg-red-700 text-white font-bold">Subscribe Now</Button>
+                        </Link>
                         <ul className="space-y-4 flex-1">
                             <li className="flex items-start">
                                 <Check className="h-5 w-5 text-red-500 mr-3 flex-shrink-0" />

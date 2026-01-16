@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Pencil, Trash2, Search } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/lib/supabase";
+import { toast } from 'sonner';
 
 interface User {
     id: string; // Changed from uid to id to match Supabase table
@@ -78,9 +79,10 @@ export function UserManagement() {
 
             setIsEditOpen(false);
             fetchUsers();
+            toast.success('User updated successfully');
         } catch (e) {
             console.error("Update failed:", e);
-            alert("Failed to update user");
+            toast.error('Failed to update user');
         }
     };
 
@@ -94,9 +96,10 @@ export function UserManagement() {
 
             if (error) throw error;
             fetchUsers();
+            toast.success('User deleted');
         } catch (e) {
             console.error("Delete failed:", e);
-            alert("Failed to delete user");
+            toast.error('Failed to delete user');
         }
     };
 

@@ -7,7 +7,9 @@ interface UserData {
     email: string | null;
     name: string | null;
     role: "admin" | "user";
-    subscriptionStatus?: "basic" | "premium" | "organization";
+    subscriptionStatus?: "trial" | "active" | "expired" | "basic" | "premium" | "organization";
+    trialEndsAt?: string | null;
+    subscriptionExpiresAt?: string | null;
 }
 
 interface AuthContextType {
@@ -17,6 +19,9 @@ interface AuthContextType {
     isAuthenticated: boolean;
     isAdmin: boolean;
     isPremium: boolean;
+    isTrialActive: boolean;
+    hasActiveSubscription: boolean;
+    needsPayment: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -25,7 +30,10 @@ const AuthContext = createContext<AuthContextType>({
     logout: async () => { },
     isAuthenticated: false,
     isAdmin: false,
-    isPremium: false
+    isPremium: false,
+    isTrialActive: false,
+    hasActiveSubscription: false,
+    needsPayment: false
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -65,16 +73,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         email: session.user.email ?? null,
                         name: session.user.user_metadata?.full_name || "User",
                         role: "user",
-                        subscriptionStatus: "basic"
+                        subscriptionStatus: "trial",
+                        trialEndsAt: null,
+                        subscriptionExpiresAt: null
                     });
                 } else {
-                    setUser({
+                    const userData = {
                         id: session.user.id,
                         email: session.user.email ?? null,
                         name: data.name || session.user.user_metadata?.full_name || "User",
                         role: data.role || "user",
-                        subscriptionStatus: data.subscription_status || "basic" // Mapping 'subscription_status' from DB convention
+                        subscriptionStatus: data.subscription_status || "trial",
+                        trialEndsAt: data.trial_ends_at || null,
+                        subscriptionExpiresAt: data.subscription_expires_at || null
+                    };
+                    // Debug: Log subscription data from database
+                    console.log('📍 User subscription data from DB:', {
+                        subscription_status: data.subscription_status,
+                        subscription_expires_at: data.subscription_expires_at,
+                        trial_ends_at: data.trial_ends_at,
+                        role: data.role
                     });
+                    setUser(userData);
                 }
             } catch (error) {
                 console.error("Error fetching user data:", error);
@@ -83,7 +103,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     email: session.user.email ?? null,
                     name: "User",
                     role: "user",
-                    subscriptionStatus: "basic"
+                    subscriptionStatus: "trial",
+                    trialEndsAt: null,
+                    subscriptionExpiresAt: null
                 });
             }
         } else {
@@ -97,6 +119,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null);
     };
 
+    // Compute subscription status flags
+    const now = new Date();
+    const trialEnd = user?.trialEndsAt ? new Date(user.trialEndsAt) : null;
+    const subEnd = user?.subscriptionExpiresAt ? new Date(user.subscriptionExpiresAt) : null;
+
+    const isTrialActive = trialEnd ? trialEnd > now : false;
+    const hasActiveSubscription = (user?.subscriptionStatus === 'active' && subEnd && subEnd > now) || user?.role === 'admin';
+    const needsPayment = user ? (!isTrialActive && !hasActiveSubscription && user.role !== 'admin') : false;
+
     return (
         <AuthContext.Provider value={{
             user,
@@ -104,7 +135,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             logout,
             isAuthenticated: !!user,
             isAdmin: user?.role === "admin",
-            isPremium: user?.subscriptionStatus === "premium" || user?.subscriptionStatus === "organization" || user?.role === "admin"
+            isPremium: hasActiveSubscription || user?.subscriptionStatus === "premium" || user?.subscriptionStatus === "organization",
+            isTrialActive,
+            hasActiveSubscription,
+            needsPayment
         }}>
             {children}
         </AuthContext.Provider>

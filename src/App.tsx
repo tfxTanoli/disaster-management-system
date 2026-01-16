@@ -3,6 +3,8 @@ import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
 import { PublicLayout } from './components/layout/PublicLayout';
 import { AdminLayout } from './components/layout/AdminLayout';
+import { TawkToWidget } from './components/TawkToWidget';
+import { Toaster } from 'sonner';
 
 // Admin Pages
 // Admin Pages
@@ -14,6 +16,7 @@ import { Inventory } from './pages/admin/Inventory';
 import { AdminLiveMap } from './pages/admin/AdminLiveMap';
 import { AdminReports } from './pages/admin/AdminReports';
 import { UserManagement } from './pages/admin/UserManagement';
+import { AdminSubscriptions } from './pages/admin/AdminSubscriptions';
 
 // Public Pages
 import { LandingPage } from './pages/public/LandingPage';
@@ -36,11 +39,15 @@ import { Login } from './pages/auth/Login';
 import { Signup } from './pages/auth/Signup';
 import { RiskMap } from './pages/public/RiskMap';
 import { Blogs } from './pages/public/Blogs';
+import { BlogDetail } from './pages/public/BlogDetail';
 import { Subscription } from './pages/public/Subscription';
+import { Payment } from './pages/public/Payment';
 
 function App() {
   return (
     <AuthProvider>
+      <Toaster position="top-right" richColors closeButton />
+      <TawkToWidget />
       <Router>
         <Routes>
 
@@ -58,7 +65,9 @@ function App() {
             <Route path="/forecast" element={<Forecast />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/blogs" element={<Blogs />} />
+            <Route path="/blogs/:id" element={<BlogDetail />} />
             <Route path="/subscription" element={<Subscription />} />
+            <Route path="/payment" element={<Payment />} />
           </Route>
 
           {/* Protected Public Routes (Registered Users & Admins) */}
@@ -85,6 +94,7 @@ function App() {
               <Route path="reports" element={<AdminReports />} />
               <Route path="live-map" element={<AdminLiveMap />} />
               <Route path="users" element={<UserManagement />} />
+              <Route path="subscriptions" element={<AdminSubscriptions />} />
             </Route>
           </Route>
 

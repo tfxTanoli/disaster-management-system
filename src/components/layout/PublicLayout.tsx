@@ -1,5 +1,5 @@
 import { Link, Outlet } from "react-router-dom";
-import { ShieldAlert, Menu, X } from "lucide-react";
+import { ShieldAlert, Menu, X, Crown } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
@@ -7,7 +7,7 @@ import { LogOut, User } from "lucide-react";
 
 export function PublicLayout() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const { user, isAuthenticated, logout } = useAuth();
+    const { user, isAuthenticated, logout, hasActiveSubscription, isAdmin } = useAuth();
 
     return (
         <div className="min-h-screen flex flex-col bg-slate-50">
@@ -28,6 +28,11 @@ export function PublicLayout() {
                         {isAuthenticated && (
                             <Link to="/risk-map" className="text-sm font-medium text-slate-600 hover:text-red-600 transition-colors">Check Risk</Link>
                         )}
+                        {isAuthenticated ? (
+                            <Link to="/payment" className="text-sm font-medium text-amber-600 hover:text-amber-700 transition-colors">Pro Plans</Link>
+                        ) : (
+                            <Link to="/subscription" className="text-sm font-medium text-amber-600 hover:text-amber-700 transition-colors">Pricing</Link>
+                        )}
                         <Link to="/contact" className="text-sm font-medium text-slate-600 hover:text-red-600 transition-colors">Contact</Link>
                     </nav>
 
@@ -36,10 +41,22 @@ export function PublicLayout() {
                             <div className="flex items-center space-x-3">
                                 <Link to={user?.role === 'admin' ? "/admin/dashboard" : "/risk-map"}>
                                     <Button variant="ghost" size="sm" className="flex items-center space-x-2">
-                                        <div className="h-7 w-7 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold">
-                                            {user?.name ? user.name[0].toUpperCase() : <User className="h-4 w-4" />}
+                                        <div className="relative">
+                                            <div className="h-7 w-7 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold">
+                                                {user?.name ? user.name[0].toUpperCase() : <User className="h-4 w-4" />}
+                                            </div>
+                                            {(hasActiveSubscription || isAdmin) && (
+                                                <div className="absolute -top-1 -right-1 h-4 w-4 bg-gradient-to-r from-amber-400 to-yellow-500 rounded-full flex items-center justify-center shadow-sm">
+                                                    <Crown className="h-2.5 w-2.5 text-white" />
+                                                </div>
+                                            )}
                                         </div>
                                         <span className="text-slate-700 font-medium">{user?.name}</span>
+                                        {(hasActiveSubscription || isAdmin) && (
+                                            <span className="px-1.5 py-0.5 text-[10px] font-bold bg-gradient-to-r from-amber-400 to-yellow-500 text-white rounded-full uppercase tracking-wider">
+                                                PRO
+                                            </span>
+                                        )}
                                     </Button>
                                 </Link>
                                 <Button variant="ghost" size="icon" onClick={() => logout()} title="Sign Out">
@@ -85,11 +102,25 @@ export function PublicLayout() {
                                     {isAuthenticated ? (
                                         <>
                                             <div className="px-4 py-2 flex items-center space-x-3 bg-slate-50 rounded-md">
-                                                <div className="h-8 w-8 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold">
-                                                    {user?.name ? user.name[0].toUpperCase() : "U"}
+                                                <div className="relative">
+                                                    <div className="h-8 w-8 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold">
+                                                        {user?.name ? user.name[0].toUpperCase() : "U"}
+                                                    </div>
+                                                    {(hasActiveSubscription || isAdmin) && (
+                                                        <div className="absolute -top-1 -right-1 h-4 w-4 bg-gradient-to-r from-amber-400 to-yellow-500 rounded-full flex items-center justify-center shadow-sm">
+                                                            <Crown className="h-2.5 w-2.5 text-white" />
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                <div>
-                                                    <p className="font-medium text-slate-900">{user?.name}</p>
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="font-medium text-slate-900">{user?.name}</p>
+                                                        {(hasActiveSubscription || isAdmin) && (
+                                                            <span className="px-1.5 py-0.5 text-[10px] font-bold bg-gradient-to-r from-amber-400 to-yellow-500 text-white rounded-full uppercase tracking-wider">
+                                                                PRO
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     <p className="text-xs text-slate-500 capitalize">{user?.role}</p>
                                                 </div>
                                             </div>

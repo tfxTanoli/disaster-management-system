@@ -9,7 +9,8 @@ import {
     ShieldAlert,
     Menu,
     Map,
-    Users
+    Users,
+    CreditCard
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -90,6 +91,11 @@ export function AdminLayout() {
                     <Link to="/admin/users" className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${isActive('/admin/users')}`}>
                         <Users className="h-5 w-5 flex-shrink-0" />
                         {isSidebarOpen && <span>Users</span>}
+                    </Link>
+
+                    <Link to="/admin/subscriptions" className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${isActive('/admin/subscriptions')}`}>
+                        <CreditCard className="h-5 w-5 flex-shrink-0" />
+                        {isSidebarOpen && <span>Subscriptions</span>}
                     </Link>
                 </div>
 

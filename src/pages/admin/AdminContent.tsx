@@ -28,6 +28,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 import { Loader2, Trash2, AlertTriangle, Image as ImageIcon, X, Megaphone, Maximize2 } from 'lucide-react';
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { toast } from 'sonner';
 
 interface ContentItem {
     id: string;
@@ -143,14 +144,14 @@ export function AdminContent() {
 
             return data.publicUrl;
         } catch (error: any) {
-            alert('Error uploading file: ' + error.message);
+            toast.error('Error uploading file', { description: error.message });
             return null;
         }
     };
 
     const createContent = async () => {
         // Validation: Needs either text or a file
-        if (!postBody && !file && !postUrl) return alert("Please add some text or media.");
+        if (!postBody && !file && !postUrl) { toast.warning('Please add some text or media'); return; }
 
         let finalUrl = postUrl;
 
@@ -178,9 +179,9 @@ export function AdminContent() {
             setPostBody('');
             setPostUrl('');
             clearFile();
-            alert("Posted successfully!");
+            toast.success('Posted successfully!');
         } catch (e: any) {
-            alert(e.message);
+            toast.error('Failed to post', { description: e.message });
         }
     };
 
@@ -192,7 +193,7 @@ export function AdminContent() {
     };
 
     const createAlert = async () => {
-        if (!alertTitle || !alertMessage) return alert("Title and Message are required");
+        if (!alertTitle || !alertMessage) { toast.warning('Title and Message are required'); return; }
 
         try {
             const { error } = await supabase.from('alerts').insert({
@@ -205,9 +206,9 @@ export function AdminContent() {
 
             setAlertTitle('');
             setAlertMessage('');
-            alert("Alert broadcasted!");
+            toast.success('Alert broadcasted!');
         } catch (e: any) {
-            alert(e.message);
+            toast.error('Failed to create alert', { description: e.message });
         }
     };
 
