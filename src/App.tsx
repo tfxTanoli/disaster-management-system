@@ -17,6 +17,7 @@ import { AdminLiveMap } from './pages/admin/AdminLiveMap';
 import { AdminReports } from './pages/admin/AdminReports';
 import { UserManagement } from './pages/admin/UserManagement';
 import { AdminSubscriptions } from './pages/admin/AdminSubscriptions';
+import { AdminEarnings } from './pages/admin/AdminEarnings';
 
 // Public Pages
 import { LandingPage } from './pages/public/LandingPage';
@@ -43,12 +44,15 @@ import { BlogDetail } from './pages/public/BlogDetail';
 import { Subscription } from './pages/public/Subscription';
 import { Payment } from './pages/public/Payment';
 
+import { ScrollToTop } from './components/layout/ScrollToTop';
+
 function App() {
   return (
     <AuthProvider>
       <Toaster position="top-right" richColors closeButton />
       <TawkToWidget />
       <Router>
+        <ScrollToTop />
         <Routes>
 
           {/* Public Routes (Accessible to everyone) */}
@@ -95,6 +99,7 @@ function App() {
               <Route path="live-map" element={<AdminLiveMap />} />
               <Route path="users" element={<UserManagement />} />
               <Route path="subscriptions" element={<AdminSubscriptions />} />
+              <Route path="earnings" element={<AdminEarnings />} />
             </Route>
           </Route>
 

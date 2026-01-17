@@ -151,8 +151,12 @@ export function AdminReports() {
                 </p>
 
                 {report.imageUrl && (
-                    <div className="relative h-48 rounded-md overflow-hidden bg-slate-100 border border-slate-200">
-                        <img src={report.imageUrl} alt="Incident Evidence" className="w-full h-full object-cover" />
+                    <div className="relative mt-4 rounded-lg overflow-hidden bg-slate-900 border border-slate-200">
+                        <img
+                            src={report.imageUrl}
+                            alt="Incident Evidence"
+                            className="w-full h-auto max-h-[500px] object-contain mx-auto"
+                        />
                         <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
                             Attached Evidence
                         </div>

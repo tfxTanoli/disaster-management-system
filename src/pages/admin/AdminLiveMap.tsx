@@ -95,10 +95,11 @@ export function AdminLiveMap() {
     };
 
     // Get coordinates for a location name
-    const getCoordinates = (location: string | undefined): [number, number] | null => {
-        if (!location) return null;
+    const getCoordinates = (location: string | undefined, contextText: string = ""): [number, number] | null => {
+        const searchText = (location + " " + contextText).toLowerCase();
+
         for (const [name, coords] of Object.entries(KNOWN_LOCATIONS)) {
-            if (location.toLowerCase().includes(name.toLowerCase())) {
+            if (searchText.includes(name.toLowerCase())) {
                 // Add slight randomization to avoid overlapping markers
                 return [
                     coords[0] + (Math.random() - 0.5) * 0.1,
@@ -106,7 +107,7 @@ export function AdminLiveMap() {
                 ];
             }
         }
-        return null;
+        return null; // Return null if no known location found in text
     };
 
     const activeAlerts = alerts.filter(a => a.severity === 'critical' || a.severity === 'high');
@@ -160,7 +161,7 @@ export function AdminLiveMap() {
 
                                 {/* Alert Markers */}
                                 {alerts.map((alert, idx) => {
-                                    const coords = getCoordinates(alert.location);
+                                    const coords = getCoordinates(alert.location, alert.title);
                                     if (!coords) return null;
                                     return (
                                         <CircleMarker

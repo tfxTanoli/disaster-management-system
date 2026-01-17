@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { ShieldAlert, Phone, BookOpen, ArrowRight, Activity } from "lucide-react";
+import disasterTeamImg from "@/assets/disaster-team.png";
 
 export function LandingPage() {
     return (
@@ -128,7 +129,7 @@ export function LandingPage() {
                         <div className="md:w-1/2 relative">
                             <div className="absolute -inset-4 bg-gradient-to-r from-red-100 to-orange-100 rounded-3xl blur-2xl opacity-50 -z-10"></div>
                             <img
-                                src="https://images.unsplash.com/photo-1542601906990-24d4c16419d9?q=80&w=2670&auto=format&fit=crop"
+                                src={disasterTeamImg}
                                 alt="Disaster Response Team"
                                 className="rounded-2xl shadow-2xl w-full h-auto object-cover transform transition-transform hover:scale-[1.01]"
                             />

@@ -189,7 +189,19 @@ export function AdminContent() {
 
     const deleteContent = async (id: string) => {
         if (!confirm("Delete this post?")) return;
-        await supabase.from('content').delete().eq('id', id);
+
+        // Optimistic UI update
+        setContents(prev => prev.filter(item => item.id !== id));
+
+        const { error } = await supabase.from('content').delete().eq('id', id);
+
+        if (error) {
+            // Revert on error
+            toast.error('Failed to delete content');
+            fetchData(); // Sync back with server
+        } else {
+            toast.success('Content deleted');
+        }
     };
 
     const createAlert = async () => {
@@ -207,6 +219,7 @@ export function AdminContent() {
             setAlertTitle('');
             setAlertMessage('');
             toast.success('Alert broadcasted!');
+            // Subscription will handle the list update, or we could fetch here
         } catch (e: any) {
             toast.error('Failed to create alert', { description: e.message });
         }
@@ -214,11 +227,33 @@ export function AdminContent() {
 
     const deleteAlert = async (id: string) => {
         if (!confirm("Remove this alert record?")) return;
-        await supabase.from('alerts').delete().eq('id', id);
+
+        // Optimistic UI update
+        setAlerts(prev => prev.filter(item => item.id !== id));
+
+        const { error } = await supabase.from('alerts').delete().eq('id', id);
+
+        if (error) {
+            toast.error('Failed to delete alert');
+            fetchData();
+        } else {
+            toast.success('Alert deleted');
+        }
     };
 
     const toggleAlertActive = async (item: AlertItem) => {
-        await supabase.from('alerts').update({ active: !item.active }).eq('id', item.id);
+        // Optimistic UI update
+        const updatedStatus = !item.active;
+        setAlerts(prev => prev.map(a => a.id === item.id ? { ...a, active: updatedStatus } : a));
+
+        const { error } = await supabase.from('alerts').update({ active: updatedStatus }).eq('id', item.id);
+
+        if (error) {
+            toast.error('Failed to update status');
+            fetchData();
+        } else {
+            toast.success(updatedStatus ? 'Alert activated' : 'Alert deactivated');
+        }
     };
 
 

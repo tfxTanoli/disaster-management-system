@@ -1,4 +1,4 @@
-import { Link, Outlet } from "react-router-dom";
+import { Link, Outlet, NavLink } from "react-router-dom";
 import { ShieldAlert, Menu, X, Crown } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -20,20 +20,66 @@ export function PublicLayout() {
 
                     {/* Desktop Nav */}
                     <nav className="hidden md:flex items-center space-x-6">
-                        <Link to="/" className="text-sm font-medium text-slate-600 hover:text-red-600 transition-colors">Home</Link>
-                        <Link to="/news" className="text-sm font-medium text-slate-600 hover:text-red-600 transition-colors">News Feed</Link>
-                        <Link to="/alerts" className="text-sm font-medium text-slate-600 hover:text-red-600 transition-colors">Alerts</Link>
-                        <Link to="/guidelines" className="text-sm font-medium text-slate-600 hover:text-red-600 transition-colors">Guidelines</Link>
-                        <Link to="/about" className="text-sm font-medium text-slate-600 hover:text-red-600 transition-colors">About</Link>
+                        {[
+                            { path: "/", label: "Home" },
+                            { path: "/news", label: "News Feed" },
+                            { path: "/alerts", label: "Alerts" },
+                            { path: "/guidelines", label: "Guidelines" },
+                            { path: "/about", label: "About" },
+                        ].map((link) => (
+                            <NavLink
+                                key={link.path}
+                                to={link.path}
+                                className={({ isActive }) =>
+                                    `text-sm font-medium transition-colors ${isActive ? "text-red-600 font-semibold" : "text-slate-600 hover:text-red-600"
+                                    }`
+                                }
+                            >
+                                {link.label}
+                            </NavLink>
+                        ))}
+
                         {isAuthenticated && (
-                            <Link to="/risk-map" className="text-sm font-medium text-slate-600 hover:text-red-600 transition-colors">Check Risk</Link>
+                            <NavLink
+                                to="/risk-map"
+                                className={({ isActive }) =>
+                                    `text-sm font-medium transition-colors ${isActive ? "text-red-600 font-semibold" : "text-slate-600 hover:text-red-600"
+                                    }`
+                                }
+                            >
+                                Check Risk
+                            </NavLink>
                         )}
                         {isAuthenticated ? (
-                            <Link to="/payment" className="text-sm font-medium text-amber-600 hover:text-amber-700 transition-colors">Pro Plans</Link>
+                            <NavLink
+                                to="/payment"
+                                className={({ isActive }) =>
+                                    `text-sm font-medium transition-colors ${isActive ? "text-red-600 font-semibold" : "text-slate-600 hover:text-red-600"
+                                    }`
+                                }
+                            >
+                                Upgrade Plan
+                            </NavLink>
                         ) : (
-                            <Link to="/subscription" className="text-sm font-medium text-amber-600 hover:text-amber-700 transition-colors">Pricing</Link>
+                            <NavLink
+                                to="/subscription"
+                                className={({ isActive }) =>
+                                    `text-sm font-medium transition-colors ${isActive ? "text-red-600 font-semibold" : "text-slate-600 hover:text-red-600"
+                                    }`
+                                }
+                            >
+                                Pricing
+                            </NavLink>
                         )}
-                        <Link to="/contact" className="text-sm font-medium text-slate-600 hover:text-red-600 transition-colors">Contact</Link>
+                        <NavLink
+                            to="/contact"
+                            className={({ isActive }) =>
+                                `text-sm font-medium transition-colors ${isActive ? "text-red-600 font-semibold" : "text-slate-600 hover:text-red-600"
+                                }`
+                            }
+                        >
+                            Contact
+                        </NavLink>
                     </nav>
 
                     <div className="hidden md:flex items-center space-x-4">
@@ -184,7 +230,6 @@ export function PublicLayout() {
                         <Link to="/ngos" className="hover:text-white transition-colors">Partner NGOs</Link>
                         <Link to="/videos" className="hover:text-white transition-colors">Video Gallery</Link>
                         <Link to="/subscription" className="hover:text-white transition-colors">Subscription Plans</Link>
-                        <Link to="/forecast" className="hover:text-white transition-colors">Weather Forecast</Link>
                         <Link to="/guidelines" className="hover:text-white transition-colors">Safety Guidelines</Link>
                     </div>
 

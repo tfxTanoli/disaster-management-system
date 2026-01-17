@@ -135,7 +135,7 @@ export function AdminSubscriptions() {
 
             // Update user subscription
             const expiresAt = new Date();
-            expiresAt.setMonth(expiresAt.getMonth() + 1); // 1 month subscription
+            expiresAt.setDate(expiresAt.getDate() + 30); // 30 days subscription
 
             await supabase
                 .from('users')

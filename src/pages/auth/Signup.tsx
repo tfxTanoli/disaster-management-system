@@ -47,8 +47,27 @@ export function Signup() {
             if (!user) throw new Error("Accout creation failed");
 
             // 4. Create User Entry in Public Table 'users'
-            // We now handle this via a Supabase Database Trigger (security definer)
-            // This prevents RLS violations and ensures atomicity.
+            // We now handle this via a Supabase Database Trigger. 
+            // However, we want to ensure the trial date is set correctly based on runtime.
+            // We will attempt to update it here to be sure.
+
+            const trialDetails = {
+                trial_ends_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 Days Trial
+                subscription_status: 'trial'
+            };
+
+            // Using a slight delay to allow trigger to create the row first if needed, 
+            // though usually we can just upsert or update. 
+            // Since we are client-side, we try to update.
+            const { error: updateError } = await supabase
+                .from('users')
+                .update(trialDetails)
+                .eq('id', user.id);
+
+            if (updateError) {
+                console.warn("Could not set trial date immediately (might be RLS or trigger delay):", updateError);
+                // Non-blocking error, user is still created.
+            }
 
             // 5. Show Success & Redirect
             setSuccess(true);

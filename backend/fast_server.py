@@ -125,6 +125,16 @@ def predict_risk(req: PredictionRequest):
     """
     Predict disaster risk based on location and environmental data.
     """
+    # Sanity Check: If all inputs are minimal, return Safe/Normal
+    if (req.rainfall <= 5) and (req.river_level <= 5) and (req.soil_moisture <= 10):
+        return {
+            "prediction": "Normal",
+            "risk_level": "Low",
+            "confidence": 100.0,
+            "visual_color": "#10b981", 
+            "recommendations": ["Conditions are within normal ranges.", "No immediate risks detected."]
+        }
+
     if model_artifacts:
         try:
             # Prepare input for model
