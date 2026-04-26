@@ -34,9 +34,10 @@ interface PredictionResult {
 
 interface RouteData {
     path: [number, number][];
-    safe_zone: { lat: number; lng: number };
+    safe_zone: { lat: number; lng: number; name: string; type: string; capacity: number };
     estimated_time: string;
     distance: string;
+    note?: string;
 }
 
 interface DangerZone {
@@ -45,6 +46,20 @@ interface DangerZone {
     type: string;
     risk: string;
     location: string;
+    event_count?: number;
+}
+
+interface NearestZoneResult {
+    zone: DangerZone;
+    distKm: number;
+}
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 interface SafeZone {
@@ -101,6 +116,22 @@ export function RiskMap() {
     const [safeZones, setSafeZones] = useState<SafeZone[]>([]);
     const [showDangerZones, setShowDangerZones] = useState(false);
     const [showSafeZones, setShowSafeZones] = useState(false);
+
+    // Nearest historical zone to the selected point
+    const [nearestZone, setNearestZone] = useState<NearestZoneResult | null>(null);
+
+    const PROXIMITY_THRESHOLD_KM = 15;
+
+    const findNearestDangerZone = (lat: number, lng: number): NearestZoneResult | null => {
+        if (!dangerZones.length) return null;
+        let nearest: DangerZone | null = null;
+        let minDist = Infinity;
+        for (const zone of dangerZones) {
+            const d = haversineKm(lat, lng, zone.lat, zone.lng);
+            if (d < minDist) { minDist = d; nearest = zone; }
+        }
+        return nearest ? { zone: nearest, distKm: minDist } : null;
+    };
 
     // Initial Data Fetch
     useEffect(() => {
@@ -203,6 +234,10 @@ export function RiskMap() {
                 // Don't auto-predict; user must click "Check Analysis"
                 setResult(null);
                 setRoute(null);
+
+                // Find nearest historical danger zone to the searched location
+                const nearest = findNearestDangerZone(parseFloat(lat), parseFloat(lon));
+                setNearestZone(nearest && nearest.distKm <= PROXIMITY_THRESHOLD_KM ? nearest : null);
             }
         } catch (error) {
             console.error("Search Error:", error);
@@ -212,30 +247,79 @@ export function RiskMap() {
     };
 
     const handleLocationSelect = (latlng: L.LatLng) => {
-        // For map clicks, we might not know the district immediately.
-        // We can either reverse geocode OR allow it but warn if backend returns "Unknown" risk.
-        // For now, let's allow map clicks for exploration but searches are strict.
         setSelectedPos(latlng);
         setResult(null);
         setRoute(null);
-        setSelectedDistrict("Unknown");
+
+        const nearest = findNearestDangerZone(latlng.lat, latlng.lng);
+        const nearby = nearest && nearest.distKm <= PROXIMITY_THRESHOLD_KM ? nearest : null;
+        setNearestZone(nearby);
+
+        // Extract district from the nearest danger zone's location string (e.g. "Gilgit District")
+        if (nearby) {
+            const rawName = nearby.zone.location.replace(/\s*District\s*/i, '').trim();
+            const matched = SUPPORTED_DISTRICTS.find(d =>
+                rawName.toLowerCase().includes(d.toLowerCase())
+            );
+            setSelectedDistrict(matched || "Unknown");
+        } else {
+            setSelectedDistrict("Unknown");
+        }
     };
+
+    // Minimum trigger signals per historical hazard type.
+    // Landslide: terrain only — training Landslide rows always have rainfall_mm=0,
+    //            so injecting rainfall would look like Flood to the model.
+    // Flood:     rainfall + river_level — both present in all Flood training rows.
+    // GLOF:      temperature_elevated — sets glacial_trigger=1 in inference.py.
+    // Earthquake: seismic_activity — sets seismic_trigger=1.
+    const zoneSignals = (zoneType: string): Record<string, unknown> => {
+        switch (zoneType) {
+            case "Flood":      return { rainfall: 150, river_level: 8 };
+            case "Landslide":  return { terrain: "Mountainous" };
+            case "GLOF":       return { temperature_elevated: true };
+            case "Earthquake": return { seismic_activity: true };
+            default:           return {};
+        }
+    };
+
+    const [enrichedByZone, setEnrichedByZone] = useState(false);
 
     const runRiskAnalysis = async () => {
         if (!selectedPos) return;
         setLoading(true);
+
+        const signals = nearestZone ? zoneSignals(nearestZone.zone.type) : {};
+        const hasSignals = Object.keys(signals).length > 0;
+        setEnrichedByZone(hasSignals);
+
+        // When enriched: use the zone's own lat/lng so the model's geographic
+        // features match the original training cluster exactly. Using the clicked
+        // point's coordinates instead causes competing votes from trees trained on
+        // other nearby event clusters, capping confidence at ~65%.
+        const predLat = hasSignals ? nearestZone!.zone.lat : selectedPos.lat;
+        const predLng = hasSignals ? nearestZone!.zone.lng : selectedPos.lng;
+
+        // District from the zone's location label (e.g. "Skardu District" → "Skardu")
+        const district = hasSignals
+            ? nearestZone!.zone.location.replace(/\s*District\s*/i, '').trim()
+            : selectedDistrict;
+
         try {
             const response = await fetch('http://localhost:8000/predict', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    latitude: selectedPos.lat,
-                    longitude: selectedPos.lng,
-                    district: selectedDistrict,
-                    // Use more varied "random" inputs based on lat/lng to avoid static 56% if model is missing or limited
-                    rainfall: (selectedPos.lat % 1) * 100 + Math.random() * 50,
-                    river_level: (selectedPos.lng % 1) * 30,
-                    soil_moisture: Math.random() * 100
+                    latitude: predLat,
+                    longitude: predLng,
+                    district,
+                    rainfall: 0,
+                    river_level: 0,
+                    soil_moisture: 0,
+                    temperature_elevated: false,
+                    terrain: "Unknown",
+                    seismic_activity: false,
+                    ...signals,
                 }),
             });
             const data = await response.json();
@@ -277,7 +361,7 @@ export function RiskMap() {
 
     return (
         <SubscriptionGate featureName="Disaster Risk Prediction">
-            <div className="container mx-auto px-4 py-8 space-y-8 animate-in fade-in">
+            <div className="container mx-auto px-4 py-8 pb-16 space-y-8 animate-in fade-in">
                 <div className="text-center max-w-3xl mx-auto">
                     <h1 className="text-4xl font-extrabold text-slate-900 mb-4">Check Your Location Risk</h1>
                     <p className="text-xl text-slate-600">
@@ -300,14 +384,14 @@ export function RiskMap() {
                     </Button>
                 </div>
 
-                <div className="grid lg:grid-cols-3 gap-8 h-[600px]">
+                <div className="grid lg:grid-cols-3 gap-8 items-start">
                     {/* Map Section */}
-                    <Card className="lg:col-span-2 border-0 shadow-xl overflow-hidden h-full relative z-0">
+                    <Card className="lg:col-span-2 border-0 shadow-xl overflow-hidden relative isolate" style={{ height: '600px' }}>
                         <MapContainer
                             center={[35.9208, 74.3089]} // Gilgit
                             zoom={8}
                             scrollWheelZoom={true}
-                            className="h-full w-full"
+                            style={{ height: '100%', width: '100%' }}
                         >
                             <TileLayer
                                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -429,7 +513,7 @@ export function RiskMap() {
 
                     {/* Results Panel */}
                     <div className="lg:col-span-1">
-                        <Card className="h-full border-2 border-slate-100 shadow-lg flex flex-col">
+                        <Card className="border-2 border-slate-100 shadow-lg flex flex-col" style={{ minHeight: '600px' }}>
                             <CardHeader className="bg-slate-50 border-b">
                                 <CardTitle className="flex items-center gap-2">
                                     <MapPin className="h-5 w-5 text-red-600" />
@@ -452,14 +536,35 @@ export function RiskMap() {
                                 )}
 
                                 {selectedPos && !result && !loading && (
-                                    <div className="space-y-6 animate-in fade-in">
-                                        <div className="w-24 h-24 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                                            <MapPin className="h-10 w-10" />
+                                    <div className="space-y-4 animate-in fade-in w-full">
+                                        <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto">
+                                            <MapPin className="h-9 w-9" />
                                         </div>
                                         <h3 className="text-xl font-bold text-slate-800">Location Selected</h3>
-                                        <p className="text-slate-500">
+                                        <p className="text-slate-500 text-sm">
                                             {selectedPos.lat.toFixed(4)}, {selectedPos.lng.toFixed(4)}
+                                            {selectedDistrict !== "Unknown" && (
+                                                <span className="ml-2 text-blue-600 font-medium">· {selectedDistrict}</span>
+                                            )}
                                         </p>
+
+                                        {nearestZone && (
+                                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-left text-xs w-full">
+                                                <div className="font-bold text-amber-800 flex items-center gap-1 mb-1">
+                                                    <AlertTriangle className="h-3 w-3" /> Historical Risk Zone Nearby
+                                                </div>
+                                                <div className="text-amber-700">
+                                                    <span className="font-semibold">{nearestZone.zone.type}</span> events at {nearestZone.zone.location} — {nearestZone.distKm.toFixed(1)} km away
+                                                </div>
+                                                <div className="text-amber-600 mt-0.5">
+                                                    Historical severity: <span className="font-bold">{nearestZone.zone.risk}</span>
+                                                    {nearestZone.zone.event_count && (
+                                                        <span className="ml-2 opacity-70">({nearestZone.zone.event_count} recorded events)</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+
                                         <Button
                                             onClick={runRiskAnalysis}
                                             className="w-full bg-blue-600 hover:bg-blue-700 text-lg py-6"
@@ -467,7 +572,7 @@ export function RiskMap() {
                                             Run Risk Analysis
                                         </Button>
                                         <p className="text-xs text-slate-400">
-                                            Fetches real-time satellite & sensor data.
+                                            Analyzes geographic & seasonal conditions for this location.
                                         </p>
                                     </div>
                                 )}
@@ -481,14 +586,44 @@ export function RiskMap() {
                                 )}
 
                                 {result && !loading && (
-                                    <div className="w-full space-y-6 animate-in slide-in-from-bottom-5">
-                                        <div className={`p-6 rounded-2xl border ${result.risk_level === 'Critical' ? 'bg-red-50 text-red-900 border-red-200' :
-                                            result.risk_level === 'Moderate' ? 'bg-orange-50 text-orange-900 border-orange-200' :
+                                    <div className="w-full space-y-4 animate-in slide-in-from-bottom-5">
+
+                                        {/* Historical Zone Context */}
+                                        {nearestZone && (
+                                            <div className={`p-3 rounded-xl border text-left text-xs ${
+                                                nearestZone.zone.risk === 'Critical' ? 'bg-red-50 border-red-200 text-red-900' :
+                                                nearestZone.zone.risk === 'High' ? 'bg-orange-50 border-orange-200 text-orange-900' :
+                                                nearestZone.zone.risk === 'Medium' ? 'bg-yellow-50 border-yellow-200 text-yellow-900' :
+                                                'bg-blue-50 border-blue-200 text-blue-900'
+                                            }`}>
+                                                <div className="font-bold flex items-center gap-1 mb-1 uppercase tracking-wide">
+                                                    <AlertTriangle className="h-3 w-3" /> Historical Zone — {nearestZone.distKm.toFixed(1)} km away
+                                                </div>
+                                                <div>
+                                                    <span className="font-semibold">{nearestZone.zone.type}</span> · {nearestZone.zone.location}
+                                                </div>
+                                                <div className="mt-0.5 opacity-80">
+                                                    Recorded risk: <span className="font-bold">{nearestZone.zone.risk}</span>
+                                                    {nearestZone.zone.event_count && (
+                                                        <span className="ml-1">({nearestZone.zone.event_count} events)</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Model Prediction */}
+                                        <div className={`p-5 rounded-2xl border ${result.risk_level === 'Critical' ? 'bg-red-50 text-red-900 border-red-200' :
+                                            result.risk_level === 'High' ? 'bg-orange-50 text-orange-900 border-orange-200' :
+                                            result.risk_level === 'Medium' ? 'bg-yellow-50 text-yellow-900 border-yellow-200' :
                                                 'bg-green-50 text-green-900 border-green-200'
                                             }`}>
-                                            <div className="text-sm font-bold uppercase tracking-wider mb-2 opacity-80">Risk Level</div>
-                                            <div className="text-4xl font-black mb-2">{result.risk_level}</div>
-                                            <div className="text-sm opacity-60">Confidence: {result.confidence}%</div>
+                                            <div className="text-xs font-bold uppercase tracking-wider mb-1 opacity-70">
+                                                {enrichedByZone ? 'Zone-Based Risk Assessment' : 'Geographic Baseline'}
+                                            </div>
+                                            <div className="text-3xl font-black mb-1">{result.risk_level}</div>
+                                            <div className="text-sm opacity-60">
+                                                Model confidence: {result.confidence}%
+                                            </div>
                                         </div>
 
                                         <div className="text-left space-y-2">
@@ -502,16 +637,20 @@ export function RiskMap() {
                                             </ul>
                                         </div>
 
-                                        <div className="pt-4 border-t border-slate-100 space-y-3">
+                                        <div className="pt-3 border-t border-slate-100 space-y-3">
                                             {route ? (
-                                                <div className="bg-emerald-50 p-4 rounded-lg flex items-center justify-between text-left">
-                                                    <div>
+                                                <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-lg text-left space-y-1">
+                                                    <div className="flex items-center justify-between">
                                                         <div className="font-bold text-emerald-900 flex items-center gap-2">
                                                             <ShieldCheck className="h-4 w-4" /> Route Found
                                                         </div>
-                                                        <div className="text-xs text-emerald-700">Distance: {route.distance}</div>
+                                                        <div className="text-emerald-800 font-mono font-bold">{route.estimated_time}</div>
                                                     </div>
-                                                    <div className="text-emerald-800 font-mono font-bold">{route.estimated_time}</div>
+                                                    <div className="text-xs text-emerald-800 font-medium">{route.safe_zone.name}</div>
+                                                    <div className="text-xs text-emerald-700">Distance: {route.distance}</div>
+                                                    {route.note && (
+                                                        <div className="text-xs text-emerald-600 italic">{route.note}</div>
+                                                    )}
                                                 </div>
                                             ) : (
                                                 <Button
@@ -528,6 +667,8 @@ export function RiskMap() {
                                                 setSelectedPos(null);
                                                 setResult(null);
                                                 setRoute(null);
+                                                setNearestZone(null);
+                                                setEnrichedByZone(false);
                                             }}>
                                                 Analyze Another Location
                                             </Button>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
     Table,
     TableBody,
@@ -28,11 +28,12 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Package, Search, Plus, Trash2, Edit, AlertCircle, TrendingDown } from "lucide-react";
+import { Package, Search, Plus, Trash2, Edit, AlertCircle, TrendingDown, Loader2 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
-// Mock Data Type
 type InventoryItem = {
-    id: number;
+    id: string;
     name: string;
     category: "Shelter" | "Food" | "Medical" | "Equipment";
     quantity: number;
@@ -41,39 +42,87 @@ type InventoryItem = {
     status: "In Stock" | "Low Stock" | "Critical";
 };
 
+function computeStatus(qty: number): "In Stock" | "Low Stock" | "Critical" {
+    if (qty < 20) return "Critical";
+    if (qty < 50) return "Low Stock";
+    return "In Stock";
+}
+
 export function Inventory() {
-    const [items, setItems] = useState<InventoryItem[]>([
-        { id: 1, name: "Family Tents (Type A)", category: "Shelter", quantity: 150, unit: "units", location: "Gilgit Warehouse", status: "In Stock" },
-        { id: 2, name: "Rice Sacks (20kg)", category: "Food", quantity: 50, unit: "bags", location: "Skardu Depot", status: "Low Stock" },
-        { id: 3, name: "First Aid Kits", category: "Medical", quantity: 500, unit: "kits", location: "Gilgit Warehouse", status: "In Stock" },
-        { id: 4, name: "Thermal Blankets", category: "Shelter", quantity: 1200, unit: "pcs", location: "Hunza Center", status: "In Stock" },
-        { id: 5, name: "Water Purification Tablets", category: "Medical", quantity: 10, unit: "boxes", location: "Chilas", status: "Critical" },
-    ]);
+    const [items, setItems] = useState<InventoryItem[]>([]);
+    const [loadingItems, setLoadingItems] = useState(true);
 
     const [searchTerm, setSearchTerm] = useState("");
     const [filterCategory, setFilterCategory] = useState("All");
 
     // Form State
     const [isAddOpen, setIsAddOpen] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
     const [newItem, setNewItem] = useState({ name: "", category: "Shelter", quantity: 0, unit: "", location: "" });
 
-    const handleAddItem = () => {
-        const item: InventoryItem = {
-            id: items.length + 1,
-            name: newItem.name,
-            category: newItem.category as any,
-            quantity: newItem.quantity,
-            unit: newItem.unit,
-            location: newItem.location,
-            status: newItem.quantity < 20 ? "Critical" : newItem.quantity < 50 ? "Low Stock" : "In Stock"
+    // Load inventory from Supabase on mount
+    useEffect(() => {
+        const fetchInventory = async () => {
+            setLoadingItems(true);
+            const { data, error } = await supabase
+                .from("inventory")
+                .select("*")
+                .order("created_at", { ascending: false });
+
+            if (error) {
+                toast.error("Failed to load inventory: " + error.message);
+            } else {
+                setItems(data as InventoryItem[]);
+            }
+            setLoadingItems(false);
         };
-        setItems([...items, item]);
-        setIsAddOpen(false);
-        setNewItem({ name: "", category: "Shelter", quantity: 0, unit: "", location: "" });
+
+        fetchInventory();
+    }, []);
+
+    const handleAddItem = async () => {
+        if (!newItem.name.trim() || !newItem.unit.trim() || !newItem.location.trim()) {
+            toast.error("Please fill in all fields.");
+            return;
+        }
+
+        setIsSaving(true);
+        const { data, error } = await supabase
+            .from("inventory")
+            .insert({
+                name:     newItem.name.trim(),
+                category: newItem.category,
+                quantity: newItem.quantity,
+                unit:     newItem.unit.trim(),
+                location: newItem.location.trim(),
+                status:   computeStatus(newItem.quantity),
+            })
+            .select()
+            .single();
+
+        if (error) {
+            toast.error("Failed to add item: " + error.message);
+        } else {
+            setItems([data as InventoryItem, ...items]);
+            setIsAddOpen(false);
+            setNewItem({ name: "", category: "Shelter", quantity: 0, unit: "", location: "" });
+            toast.success(`"${data.name}" added to inventory.`);
+        }
+        setIsSaving(false);
     };
 
-    const handleDelete = (id: number) => {
-        setItems(items.filter(item => item.id !== id));
+    const handleDelete = async (id: string) => {
+        const { error } = await supabase
+            .from("inventory")
+            .delete()
+            .eq("id", id);
+
+        if (error) {
+            toast.error("Failed to delete item: " + error.message);
+        } else {
+            setItems(items.filter(item => item.id !== id));
+            toast.success("Item removed from inventory.");
+        }
     };
 
     const filteredItems = items.filter(item => {
@@ -164,8 +213,10 @@ export function Inventory() {
                             </div>
                         </div>
                         <DialogFooter>
-                            <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
-                            <Button onClick={handleAddItem} className="bg-slate-900 text-white">Save Item</Button>
+                            <Button variant="outline" onClick={() => setIsAddOpen(false)} disabled={isSaving}>Cancel</Button>
+                            <Button onClick={handleAddItem} className="bg-slate-900 text-white" disabled={isSaving}>
+                                {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving…</> : "Save Item"}
+                            </Button>
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
@@ -249,7 +300,13 @@ export function Inventory() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {filteredItems.length === 0 ? (
+                                {loadingItems ? (
+                                    <TableRow>
+                                        <TableCell colSpan={6} className="h-24 text-center text-slate-400">
+                                            <Loader2 className="h-5 w-5 animate-spin mx-auto" />
+                                        </TableCell>
+                                    </TableRow>
+                                ) : filteredItems.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={6} className="h-24 text-center">
                                             No results.
